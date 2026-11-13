@@ -31,6 +31,7 @@ const TIMER_HEIGHT: f64 = 474.;
 const TIMER_RADIUS: f64 = 82.;
 const NOTIFICATION_WIDTH: f64 = 740.;
 const NOTIFICATION_HEIGHT: f64 = 350.;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 const NOTIFICATION_RADIUS: f64 = 48.;
 
 #[derive(serde::Serialize)]
