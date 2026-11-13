@@ -1,0 +1,4 @@
+Generic MPL-2.0 text copied from the locked cssparser 0.37.0 crate LICENSE.
+selectors declares MPL-2.0 in its Cargo.toml.
+Original authors: The Servo Project Developers.
+Covered source: https://crates.io/api/v1/crates/selectors/0.41.0/download

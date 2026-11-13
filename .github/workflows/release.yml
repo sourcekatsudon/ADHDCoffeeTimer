@@ -1,0 +1,65 @@
+name: Release installers
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            name: windows-x64
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+            name: macos-x64
+          - os: macos-15
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+            name: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }}
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }} -- -D warnings
+      - run: npm run tauri build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+      - name: Archive macOS application with executable permissions
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/${{ matrix.target }}/release/bundle/macos/ADHD Coffee Time.app" "src-tauri/target/${{ matrix.target }}/release/bundle/ADHD-Coffee-Time-${{ matrix.name }}.app.zip"
+      - name: Record source and version
+        shell: bash
+        run: |
+          mkdir -p build-info
+          printf '%s\n' "$GITHUB_SHA" > build-info/SOURCE-COMMIT.txt
+          node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json')).version" > build-info/VERSION.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ADHD-Coffee-Time-${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/*.app.zip
+            build-info/

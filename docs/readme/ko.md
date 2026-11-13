@@ -1,0 +1,21 @@
+# ☕ ADHD Coffee Time
+
+[English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
+
+**시작하는 걸 기억하지 않아도 되는 타이머.**
+
+컴퓨터를 쓰면 자동으로 시작하고, 자리를 비우면 멈추고, 쉴 때가 되면 알려줍니다.
+
+저는 ADHD가 있습니다. 쉬는 걸 잊지 않으려고 실물 뽀모도로 타이머를 샀습니다. 그런데 이번에는 타이머 켜는 걸 잊었습니다. 그래서 저절로 시작하는 타이머를 만들었습니다.
+
+기본 설정에서는 입력이 90초 동안 없으면 일시 정지하고, 10분 동안 자리를 비우면 초기화합니다. 시간은 5·10·15·25·30·60·90분 중에서 고릅니다. 테마 7종, 투명도, 선택형 알림음, S/M/L 크기(40%/70%/100%)를 설정할 수 있습니다. 설정은 재시작 후에도 유지됩니다. 10개 언어를 지원하며 시스템 트레이나 메뉴 막대에 상주합니다. 로그인 시 자동 실행도 설정할 수 있습니다.
+
+## 다운로드 및 설치
+
+[Windows x64](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_windows-x64-setup.exe) · [macOS Apple Silicon](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-arm64.dmg) · [macOS Intel](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-x64.dmg)
+
+Windows에서는 exe 설치 파일을 실행하세요. Mac에서는 칩에 맞는 DMG를 열고 앱을 Applications로 드래그하세요. Mac 빌드는 미서명 또는 임시 서명 상태이며 Apple 공증을 받지 않았습니다. 네이티브 Mac UI 수동 검증도 아직 진행하지 않았습니다. Linux는 현재 사용할 수 없습니다. [플랫폼 현황](../PLATFORMS.md#linux)을 확인하세요.
+
+계정이나 원격 측정 없이 로컬에서 작동합니다. 마지막 OS 입력 이후의 시간만 확인하며 입력 내용은 기록하지 않습니다. 의료 또는 치료 효과를 주장하지 않는 개인용 휴식 알림 도구입니다.
+
+[전체 설명(영어)](../../README.md) · [소스 빌드](../BUILDING.md) · [MIT 라이선스](../../LICENSE)

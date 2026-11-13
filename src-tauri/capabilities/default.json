@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Local app windows only. No shell, filesystem or network access from the UI.",
+  "windows": ["timer", "notification", "settings", "selector"],
+  "permissions": ["core:default"]
+}

@@ -1,0 +1,16 @@
+caniuse-lite 1.0.30001826
+A smaller version of caniuse-db, with only the essentials.
+Authors/contributors as published in package.json:
+{
+  "author": {
+    "name": "Ben Briggs",
+    "email": "beneb.info@gmail.com",
+    "url": "http://beneb.info"
+  },
+  "contributors": null,
+  "repository": "browserslist/caniuse-lite",
+  "homepage": null,
+  "license": "CC-BY-4.0"
+}
+Upstream browser compatibility data: https://caniuse.com/
+No project modifications to this package. The data is used by development/build tooling.
