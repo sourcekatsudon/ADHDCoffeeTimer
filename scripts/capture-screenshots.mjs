@@ -19,7 +19,7 @@ const frozen = new Date('2026-11-14T10:08:00+09:00');
 await page.clock.install({ time: frozen });
 await page.clock.pauseAt(frozen);
 const cases = [
-  { name: 'themes', view: 'gallery', width: 1400, height: 620 },
+  { name: 'themes', view: 'gallery', width: 1522, height: 620 },
   { name: 'timer', view: 'showcase&panel=timer', width: 720, height: 620 },
   { name: 'settings', view: 'showcase&panel=settings', width: 760, height: 1120 },
   { name: 'notification', view: 'showcase&panel=notification', width: 960, height: 520 },
@@ -40,6 +40,10 @@ try {
       }));
       if (measurement.horizontalOverflow || measurement.verticalOverflow) throw new Error(`Clipping in ${item.name}-${language}: ${JSON.stringify(measurement)}`);
       if (item.name === 'themes' && (measurement.capsules !== 7 || measurement.remaining.some(value => value !== '24:32') || measurement.clocks.some(value => value !== '10:08:00'))) throw new Error(`Inconsistent gallery: ${JSON.stringify(measurement)}`);
+      if (item.name === 'themes') {
+        const selector = page.locator('.release-gallery-selector .selector');
+        if (await selector.count() !== 1 || await selector.locator('button').count() !== 7 || await selector.locator('button[aria-pressed="true"]').innerText().then(text => !text.startsWith('25'))) throw new Error('Gallery must show exactly one preset selector with 25 minutes selected');
+      }
       await page.screenshot({ path: path.join(output, `${item.name}-${language}.png`), animations: 'disabled' });
       console.log(`${item.name}-${language}.png ${item.width * 2}×${item.height * 2} ${JSON.stringify(measurement)}`);
     }

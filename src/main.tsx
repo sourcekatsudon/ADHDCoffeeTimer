@@ -809,6 +809,11 @@ function App() {
     <main className="release-gallery">
       {THEMES.map((theme) => (
         <section className="release-theme" key={theme.id} style={theme.style} data-theme={theme.id}>
+          {theme.id === THEMES[0].id && (
+            <div className="release-gallery-selector">
+              <Selector state={state} />
+            </div>
+          )}
           <Timer state={{ ...state, settings: { ...state.settings, theme: theme.id } }} studio />
           <h2>{t(theme.id)}</h2>
         </section>

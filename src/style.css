@@ -1257,7 +1257,7 @@ input:focus-visible {
   justify-content: center;
   align-items: center;
   gap: 20px;
-  min-width: 1380px;
+  min-width: 1502px;
   padding: 48px 30px;
 }
 .release-theme {
@@ -1272,6 +1272,17 @@ input:focus-visible {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.05em;
+}
+.release-theme:first-child {
+  position: relative;
+  padding-left: 122px;
+}
+.release-gallery-selector {
+  position: absolute;
+  left: 0;
+  top: 86px;
+  width: 112px;
+  height: 302px;
 }
 .release-showcase {
   display: flex;
