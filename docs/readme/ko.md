@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**시작하는 걸 기억하지 않아도 되는 타이머.**
+**타이머 켜는 걸 잊는 사람들을 위한 타이머.**
 
 컴퓨터를 쓰면 자동으로 시작하고, 자리를 비우면 멈추고, 쉴 때가 되면 알려줍니다.
 

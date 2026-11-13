@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**不用记得启动的计时器。**
+**为总是忘记开计时器的人设计的计时器。**
 
 开始用电脑，它就开始计时；离开座位，它会暂停；该休息时，它会提醒你。
 

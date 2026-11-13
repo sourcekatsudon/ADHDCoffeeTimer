@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**Le minuteur auquel vous n’avez pas besoin de penser.**
+**Un minuteur pour ceux qui oublient de lancer leur minuteur.**
 
 Il démarre quand vous utilisez votre ordinateur, se met en pause en votre absence et vous rappelle de souffler.
 

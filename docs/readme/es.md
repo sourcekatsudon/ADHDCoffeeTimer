@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**El temporizador que no tienes que recordar.**
+**Un temporizador para quienes olvidan poner el temporizador.**
 
 Empieza cuando usas el ordenador, se pausa cuando te alejas y te recuerda descansar.
 

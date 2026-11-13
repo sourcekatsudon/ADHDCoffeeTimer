@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**セットすることを、覚えていなくていいタイマー。**
+**タイマーを忘れる人向けのタイマー**
 
 PCを使うと自動でスタート。離席すると一時停止。休憩の時間をお知らせします。
 

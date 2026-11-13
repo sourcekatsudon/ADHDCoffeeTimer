@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**Der Timer, an den du nicht denken musst.**
+**Ein Timer für alle, die ihren Timer vergessen.**
 
 Er startet, wenn du den Computer benutzt, pausiert, wenn du weg bist, und erinnert dich an deine Pause.
 

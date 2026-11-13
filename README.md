@@ -1,6 +1,6 @@
 # ☕ ADHD Coffee Time
 
-**The timer you don’t have to remember.**
+**A timer for people who forget timers.**
 
 Automatically starts when you work. Pauses when you’re away. Reminds you to rest.
 

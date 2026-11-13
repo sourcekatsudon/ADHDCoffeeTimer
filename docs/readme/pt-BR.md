@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [日本語](ja.md) · [简体中文](zh-CN.md) · [한국어](ko.md) · [Español](es.md) · [Français](fr.md) · [Deutsch](de.md) · [Português (Brasil)](pt-BR.md) · [Русский](ru.md) · [العربية](ar.md)
 
-**O timer que você não precisa lembrar de ligar.**
+**Um timer para quem esquece de usar o timer.**
 
 Começa quando você usa o computador, pausa quando você sai e avisa quando é hora de descansar.
 
