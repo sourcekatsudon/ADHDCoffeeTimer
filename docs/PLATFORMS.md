@@ -18,6 +18,8 @@ The Mac builds are ad-hoc signed and are **not notarized** by Apple. If Gatekeep
 
 Building, archive validation, and code signing checks do not establish that native Mac activity detection, tray/menu-bar interaction, Spaces, suspend/resume, or login startup work correctly on every Mac. Those hardware/desktop checks remain unverified for this release.
 
+For the macOS floating timer, preset selector, and break notification, the native window remains fully transparent and the rounded glass surface is drawn by CSS. The native `NSVisualEffectView` covered the whole rectangular window rather than the inset rounded pane, leaving a visible square matte against other applications. Only the full-window Settings view retains native vibrancy. Confirm the fix on an actual Mac with Chrome behind the timer, on light/dark backgrounds, at S/M/L sizes and after moving the window between displays; CI builds cannot validate compositor appearance.
+
 ## Linux
 
 In `src-tauri/src/platform.rs`, the non-Windows/non-macOS `sample()` returns `(None, false)`. It supplies neither idle age nor lock state. In `src-tauri/src/engine.rs`, `Engine::tick()` handles `None` before inspecting `auto_detect` or advancing time: it returns immediately with `Unavailable` (or `Paused` when manually paused). Consequently, input-triggered start, idle pause/reset and input-triggered resume do not work on Linux. Manual Start/Resume can briefly set `Running`, but subsequent ticks still cannot advance the countdown, even with automatic detection disabled.
