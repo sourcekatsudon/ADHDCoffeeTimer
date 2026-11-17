@@ -1,15 +1,16 @@
 name: macOS Apple Silicon preview DMG
 on:
-  push:
-    branches: [fix/macos-rounded-overlay-transparency]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: macos-preview-${{ github.ref }}
+  group: macos-preview-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 jobs:
   package:
+    if: github.event_name != 'pull_request' || github.head_ref == 'fix/macos-rounded-overlay-transparency'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
