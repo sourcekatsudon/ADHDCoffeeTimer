@@ -6,7 +6,7 @@
 
 Il démarre quand vous utilisez votre ordinateur, se met en pause en votre absence et vous rappelle de souffler.
 
-J’ai un TDAH. J’ai acheté un minuteur Pomodoro physique. J’ai oublié de le lancer. Alors, j’en ai créé un qui démarre tout seul.
+Je suis impatient. J’ai acheté un minuteur Pomodoro physique, mais devoir le lancer à chaque fois était une étape de trop. Alors, j’en ai créé un qui démarre tout seul.
 
 Par défaut, il se met en pause après 90 secondes sans activité et se réinitialise après 10 minutes d’absence. Choisissez 5, 10, 15, 25, 30, 60 ou 90 minutes, sept thèmes, l’opacité, un son facultatif et S/M/L (40%/70%/100%). Les préférences sont conservées. Dix langues sont disponibles. L’application reste dans la zone de notification ou la barre des menus.
 
