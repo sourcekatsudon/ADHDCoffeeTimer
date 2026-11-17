@@ -6,7 +6,7 @@
 
 Er startet, wenn du den Computer benutzt, pausiert, wenn du weg bist, und erinnert dich an deine Pause.
 
-Ich habe ADHS. Ich habe einen physischen Pomodoro-Timer gekauft. Dann habe ich vergessen, ihn zu starten. Also habe ich einen gebaut, der von selbst losläuft.
+Ich bin ungeduldig. Ich habe einen physischen Pomodoro-Timer gekauft, aber ihn jedes Mal selbst zu starten, war mir ein Schritt zu viel. Also habe ich einen gebaut, der von selbst losläuft.
 
 Standardmäßig pausiert er nach 90 Sekunden ohne Eingabe und wird nach 10 Minuten Abwesenheit zurückgesetzt. Wähle 5, 10, 15, 25, 30, 60 oder 90 Minuten, sieben Designs, Transparenz, einen optionalen Ton und S/M/L (40 %/70 %/100 %). Einstellungen bleiben nach einem Neustart erhalten. Die App bietet zehn Sprachen und bleibt im Infobereich oder in der Menüleiste.
 
