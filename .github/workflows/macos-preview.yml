@@ -1,0 +1,45 @@
+name: macOS Apple Silicon preview DMG
+on:
+  push:
+    branches: [fix/macos-rounded-overlay-transparency]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+      - name: Record source revision
+        run: |
+          mkdir -p build-info
+          printf '%s\n' "$GITHUB_SHA" > build-info/SOURCE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ADHD-Coffee-Time-macos-arm64-transparency-fix
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            build-info/SOURCE-COMMIT.txt
