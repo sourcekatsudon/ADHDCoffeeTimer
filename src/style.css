@@ -1379,6 +1379,30 @@ body[data-view='theme-review'] {
   }
 }
 
+/* macOS WKWebView cannot sample the desktop pixels behind a transparent
+   Tauri window for CSS backdrop-filter. Its full-viewport compositing layer
+   can leave a square ghost after another app/background is repainted.
+   Keep the existing color-tinted pane without that backdrop compositor.
+   This targets native Mac overlays only, not Windows or browser previews. */
+html[data-native-mac='true'] .glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Force a rounded alpha clipping path for each floating Mac pane, including
+   when WKWebView re-renders a previously occluded or inactive window. */
+html[data-native-mac='true'] .capsule {
+  -webkit-clip-path: inset(0 round 82px);
+  clip-path: inset(0 round 82px);
+}
+html[data-native-mac='true'] .selector {
+  -webkit-clip-path: inset(0 round 24px);
+  clip-path: inset(0 round 24px);
+}
+html[data-native-mac='true'] .break-card {
+  -webkit-clip-path: inset(0 round 48px);
+  clip-path: inset(0 round 48px);
+}
+
 /* Language controls stay at the physical top right, including in RTL layouts. */
 .settings-page .settings-heading {
   display: flex;

@@ -27,11 +27,11 @@ struct Runtime {
 
 const TIMER_WIDTH: f64 = 172.;
 const TIMER_HEIGHT: f64 = 474.;
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "windows")]
 const TIMER_RADIUS: f64 = 82.;
 const NOTIFICATION_WIDTH: f64 = 740.;
 const NOTIFICATION_HEIGHT: f64 = 350.;
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "windows")]
 const NOTIFICATION_RADIUS: f64 = 48.;
 
 #[derive(serde::Serialize)]
@@ -361,24 +361,24 @@ fn native_glass(w: &WebviewWindow) {
         }
     }
     #[cfg(target_os = "macos")]
-    let _ = window_vibrancy::apply_vibrancy(
-        w,
-        window_vibrancy::NSVisualEffectMaterial::HudWindow,
-        None,
-        Some(match w.label() {
-            "timer" => {
-                TIMER_RADIUS
-                    * w.state::<Runtime>()
-                        .engine
-                        .lock()
-                        .unwrap()
-                        .settings
-                        .timer_scale()
-            }
-            "notification" => NOTIFICATION_RADIUS,
-            _ => 36.,
-        }),
-    );
+    {
+        // NSVisualEffectView covers the full rectangular window, while our
+        // rounded timer, selector and notification are inset by 4-6 px.
+        // CSS border-radius cannot clip that native view behind the webview.
+        // Repeated calls also add another vibrancy view unless cleared first.
+        while let Ok(true) = window_vibrancy::clear_vibrancy(w) {}
+        if w.label() == "settings" {
+            // Settings fills its window; it can keep the native backdrop.
+            let _ = window_vibrancy::apply_vibrancy(
+                w,
+                window_vibrancy::NSVisualEffectMaterial::HudWindow,
+                None,
+                Some(36.),
+            );
+        }
+        // Frameless overlays use the existing CSS glass with a transparent
+        // native window, so their rounded corners never get a square matte.
+    }
     shape_overlay(w);
 }
 
