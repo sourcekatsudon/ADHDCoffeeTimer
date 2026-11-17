@@ -894,4 +894,11 @@ function App() {
     );
   return <Timer state={state} />;
 }
+// macOS WKWebView is the only runtime that needs the compositor fallback.
+// Tag before the first React render so the transparent native window never
+// allocates a CSS backdrop-filter layer around the rounded overlays.
+if (native && /Macintosh|Mac OS X/.test(navigator.userAgent)) {
+  document.documentElement.dataset.nativeMac = 'true';
+}
+
 createRoot(document.getElementById('root')!).render(<App />);
