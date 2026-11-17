@@ -6,7 +6,7 @@
 
 Empieza cuando usas el ordenador, se pausa cuando te alejas y te recuerda descansar.
 
-Tengo TDAH. Compré un temporizador Pomodoro físico. Olvidé ponerlo en marcha. Así que hice uno que empieza solo.
+Soy impaciente. Compré un temporizador Pomodoro físico, pero ponerlo en marcha cada vez era un paso de más. Así que hice uno que empieza solo.
 
 Por defecto, se pausa tras 90 segundos sin actividad y se reinicia después de 10 minutos de ausencia. Elige sesiones de 5, 10, 15, 25, 30, 60 o 90 minutos, siete temas, opacidad, sonido opcional y tamaño S/M/L (40%/70%/100%). Guarda tus preferencias, admite diez idiomas y permanece en la bandeja del sistema o barra de menús.
 
