@@ -6,7 +6,7 @@
 
 Começa quando você usa o computador, pausa quando você sai e avisa quando é hora de descansar.
 
-Tenho TDAH. Comprei um timer Pomodoro físico. Esqueci de iniciar o timer. Então criei um que começa sozinho.
+Sou impaciente. Comprei um timer Pomodoro físico, mas ter que iniciá-lo toda vez era uma etapa a mais. Então criei um que começa sozinho.
 
 Por padrão, pausa após 90 segundos sem atividade e reinicia após 10 minutos de ausência. Escolha 5, 10, 15, 25, 30, 60 ou 90 minutos, sete temas, opacidade, som opcional e tamanho S/M/L (40%/70%/100%). As preferências ficam salvas. Oferece dez idiomas e permanece na bandeja do sistema ou barra de menus.
 
