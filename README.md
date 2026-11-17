@@ -18,7 +18,7 @@ English · [日本語](docs/readme/ja.md) · [简体中文](docs/readme/zh-CN.md
 
 ## Why this exists
 
-I have ADHD. I bought a physical Pomodoro timer. I forgot to start it. So I built a timer that starts itself.
+I'm impatient. I bought a physical Pomodoro timer, but starting it every time felt like one step too many. So I built a timer that starts itself.
 
 ## What it does
 
