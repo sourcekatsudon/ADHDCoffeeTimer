@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { emit } from '@tauri-apps/api/event';
 import type { Snapshot } from './model';
 import { native } from './bridge';
 
@@ -6,7 +7,7 @@ export const CLOUD_BASE = 'https://adhd-coffee-focus.vercel.app';
 const KEY = 'adhd-coffee-sync-v1';
 const DEVICE_KEY = 'adhd-coffee-sync-device-v1';
 const LAST_KEY = 'adhd-coffee-sync-last-v1';
-const MIN_INTERVAL_MS = 60 * 60 * 1000; // 1 upload per hour at most, unless manually requested
+const MIN_INTERVAL_MS = 30 * 60 * 1000; // One upload per 30 minutes, only on linked PCs
 
 type Connection = { token: string; deviceId: string; expiresAt: number };
 const stored = (): Connection | null => {
@@ -37,10 +38,12 @@ export async function pairPc(code: string): Promise<void> {
   if (!/^[a-f0-9]{64}$/i.test(data.token)) throw new Error('Invalid device token');
   localStorage.setItem(KEY, JSON.stringify(data));
   localStorage.removeItem(LAST_KEY);
+  if (native) void emit('focus-sync-link-changed').catch(() => {});
 }
 export function disconnectPc() {
   localStorage.removeItem(KEY);
   localStorage.removeItem(LAST_KEY);
+  if (native) void emit('focus-sync-link-changed').catch(() => {});
 }
 export function connectedPc() {
   const c = stored();
