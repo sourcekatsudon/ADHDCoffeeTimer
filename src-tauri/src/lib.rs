@@ -31,7 +31,7 @@ struct Runtime {
 }
 
 const TIMER_WIDTH: f64 = 172.;
-const TIMER_HEIGHT: f64 = 474.;
+const TIMER_HEIGHT: f64 = 570.;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const TIMER_RADIUS: f64 = 82.;
 const HISTORY_WIDTH: f64 = 690.;
