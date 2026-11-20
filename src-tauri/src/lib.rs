@@ -1171,8 +1171,7 @@ pub fn run() {
                                     // Keep the history open through the complete bloom
                                     // and settle; hover interaction overrides auto-hide.
                                     std::thread::sleep(Duration::from_secs(8));
-                                    if rt.history_hover.load(Ordering::Relaxed)
-                                        == hover_generation
+                                    if rt.history_hover.load(Ordering::Relaxed) == hover_generation
                                     {
                                         if let Some(w) = later.get_webview_window("history") {
                                             let _ = w.hide();
