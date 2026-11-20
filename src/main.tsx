@@ -16,7 +16,7 @@ import {
   type TimerSize,
 } from './model';
 import { MiniHistory, HistoryView } from './history';
-import { SyncSettings, syncNow } from './sync';
+import { SyncSettings, connectedPc, syncNow } from './sync';
 import './style.css';
 
 type IconName = 'coffee' | 'pause' | 'play' | 'check' | 'settings' | 'close' | 'reset' | 'leaf';
@@ -813,21 +813,47 @@ function App() {
   } : snapshot;
   const language = state?.settings.language ?? 'ja';
   const t = translate(language);
-  // Use only the main timer WebView for periodic uploads, to avoid duplicate
-  // writes when Settings and History popups are open at the same time.
+  // Cloud sync is entirely dormant on an unpaired PC: no periodic timer,
+  // no reads of the activity map, and no network calls. A pairing event from
+  // Settings starts the timer immediately without restarting the application.
   useEffect(() => {
     if (!native || view !== 'timer') return;
+    let first: ReturnType<typeof setTimeout> | undefined;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let unsubscribe: (() => void) | undefined;
+    let disposed = false;
     const send = () => {
       const current = latestSnapshot.current;
       if (current) void syncNow(current).catch(() => {
-        // Offline and auth failures are retried at the next cycle; the user
-        // can see the error immediately via "Sync now" in Settings.
+        // Offline failures are retried at the next scheduled opportunity.
       });
     };
-    const first = window.setTimeout(send, 15_000);
-    const interval = window.setInterval(send, 120_000);
-    return () => { clearTimeout(first); clearInterval(interval); };
-  }, [view]);
+    const configure = () => {
+      if (first !== undefined) clearTimeout(first);
+      if (interval !== undefined) clearInterval(interval);
+      first = undefined;
+      interval = undefined;
+      if (!connectedPc() || !latestSnapshot.current?.settings.historyEnabled) return;
+      first = window.setTimeout(send, 15_000);
+      interval = window.setInterval(send, 30 * 60_000);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'adhd-coffee-sync-v1') configure();
+    };
+    window.addEventListener('storage', onStorage);
+    onEvent('focus-sync-link-changed', configure).then((off) => {
+      if (disposed) off();
+      else unsubscribe = off;
+    });
+    configure();
+    return () => {
+      disposed = true;
+      if (first !== undefined) clearTimeout(first);
+      if (interval !== undefined) clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+      unsubscribe?.();
+    };
+  }, [view, snapshot?.settings.historyEnabled]);
   useEffect(() => {
     document.body.dataset.view = view;
   }, [view]);
