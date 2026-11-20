@@ -16,6 +16,7 @@ import {
   type TimerSize,
 } from './model';
 import { MiniHistory, HistoryView } from './history';
+import { SyncSettings, syncNow } from './sync';
 import './style.css';
 
 type IconName = 'coffee' | 'pause' | 'play' | 'check' | 'settings' | 'close' | 'reset' | 'leaf';
@@ -590,6 +591,7 @@ function SettingsView({ state }: { state: Snapshot }) {
             </div>
           </div>
         </section>
+        <SyncSettings state={state} />
         <section className="setting-group">
           <div className="setting-block">
             <label id="duration-label">
@@ -795,6 +797,8 @@ function SettingsView({ state }: { state: Snapshot }) {
 }
 function App() {
   const snapshot = useSnapshot();
+  const latestSnapshot = useRef<Snapshot | null>(null);
+  useEffect(() => { latestSnapshot.current = snapshot; }, [snapshot]);
   const params = new URLSearchParams(location.search);
   const view = params.get('view') ?? (native ? 'timer' : 'studio');
   // These browser-only compositions render the production UI for documentation.
@@ -811,6 +815,21 @@ function App() {
   } : snapshot;
   const language = state?.settings.language ?? 'ja';
   const t = translate(language);
+  // Use only the main timer WebView for periodic uploads, to avoid duplicate
+  // writes when Settings and History popups are open at the same time.
+  useEffect(() => {
+    if (!native || view !== 'timer') return;
+    const send = () => {
+      const current = latestSnapshot.current;
+      if (current) void syncNow(current).catch(() => {
+        // Offline and auth failures are retried at the next cycle; the user
+        // can see the error immediately via "Sync now" in Settings.
+      });
+    };
+    const first = window.setTimeout(send, 15_000);
+    const interval = window.setInterval(send, 120_000);
+    return () => { clearTimeout(first); clearInterval(interval); };
+  }, [view]);
   useEffect(() => {
     document.body.dataset.view = view;
   }, [view]);

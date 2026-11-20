@@ -1740,3 +1740,23 @@ html:not([lang='ja']) .clock-weekday {
 .focus-history-choice button { min-width: 45px; padding: 8px 7px; border-radius: 8px; font-size: 11px; font-weight: 600; opacity: .7; }
 .focus-history-choice button.active { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--text); opacity: 1; }
 .focus-history-choice button:not(.active):hover { background: var(--hover); opacity: 1; }
+
+/* Opt-in per-PC synchronization. Never distract from the calm timer view. */
+.sync-setting { margin-bottom: 11px; }
+.sync-setting .setting-row > div:first-child { flex: 1; min-width: 0; }
+.sync-setting small { display: block; font-size: 10px; line-height: 1.5; color: var(--text-muted, #d9e1ecc5); margin-top: 5px; }
+.sync-state { font-size: 10px; letter-spacing: .03em; padding: 5px 9px; border-radius: 999px;
+  background: #ffffff0b; border: 1px solid #ffffff36; white-space: nowrap; }
+.sync-state.connected { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.sync-website { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.sync-website a { color: var(--accent); text-decoration: underline; font-size: 11px; }
+.sync-website .sound-preview { padding: 5px 8px; }
+.sync-connect-row { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.sync-connect-row label { flex: 0 0 83px; font-size: 10px; }
+.sync-connect-row input { flex: 1 1 155px; min-width: 100px; max-width: 220px; height: 34px;
+  background: #182c4352; border: 1px solid #e4dfd852; border-radius: 9px; padding: 7px 9px;
+  color: var(--text); letter-spacing: .04em; font-size: 12px; }
+.sync-connect-row .sound-preview { height: 34px; }
+.sync-actions { display: flex; gap: 7px; margin: 13px 0 8px; }
+.sync-setting .sync-error { color: #ffd5cc; }
+.sync-setting .sync-message { color: var(--accent); }

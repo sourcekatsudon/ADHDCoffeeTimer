@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 export async function currentAccount(): Promise<{ id: string; name: string; email: string } | null> {
   const session = await auth();
-  const user = session?.user as (typeof session.user & { id?: string }) | undefined;
+  const user = session?.user as ({ id?: string; name?: string | null; email?: string | null }) | undefined;
   if (!user?.id) return null;
   return { id: user.id, name: user.name ?? '', email: user.email ?? '' };
 }

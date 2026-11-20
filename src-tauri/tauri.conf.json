@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src 'self' blob:"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://adhd-coffee-focus-photors-projects.vercel.app; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src 'self' blob:"
     }
   },
   "bundle": {
