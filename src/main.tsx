@@ -296,11 +296,6 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
             }}
           >
             <svg viewBox="0 0 112 112" className="progress-ring" aria-hidden="true">
-              <defs>
-                <filter id="ring-bloom" x="-60%" y="-60%" width="220%" height="220%">
-                  <feGaussianBlur stdDeviation="3.4" />
-                </filter>
-              </defs>
               <circle className="ring-track" cx="56" cy="56" r="47" />
               <circle
                 className={`ring-aura ${state.status === 'running' ? 'running' : ''}`}
