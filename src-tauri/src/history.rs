@@ -147,7 +147,10 @@ mod tests {
         h.record(1_000_000.0, 1.0);
         assert!(h.contains_slot(999_900));
         let after_seven_days = 1_000_000 + 7 * 24 * 60 * 60;
-        assert!(h.visible(after_seven_days).iter().any(|cell| cell.start == 999_900));
+        assert!(h
+            .visible(after_seven_days)
+            .iter()
+            .any(|cell| cell.start == 999_900));
         assert_eq!(h.recent_slot(after_seven_days), None);
         h.record((1_000_000 + 9 * 24 * 60 * 60) as f64, 1.0);
         assert!(!h.contains_slot(999_900));

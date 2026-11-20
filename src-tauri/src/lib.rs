@@ -1229,7 +1229,8 @@ pub fn run() {
                                     for _ in 0..4 {
                                         std::thread::sleep(Duration::from_millis(180));
                                         let rt = later.state::<Runtime>();
-                                        if rt.reward_generation.load(Ordering::Relaxed) != reward_id {
+                                        if rt.reward_generation.load(Ordering::Relaxed) != reward_id
+                                        {
                                             return;
                                         }
                                         if show_history(&later, true).is_ok() {
