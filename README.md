@@ -77,3 +77,26 @@ from that PC. Do not share pairing codes or local device tokens.
 
 The backend requires a Google OAuth web application and a private Vercel Blob
 store. See [web/README.md](web/README.md) for setup and access controls.
+
+## Low-power timer rendering (macOS)
+
+The timer's native engine still samples OS input age and advances remaining time
+once per second, but **only a three-field `timer-tick` event is emitted at 1 Hz**.
+The WebView no longer receives the full 7-day activity snapshot per second;
+activity data refreshes every 60 seconds and when status/settings change.
+
+The timer ring no longer has an infinite animation or continuously interpolated
+SVG blur. The Mac timer capsule uses its existing static translucent gradients
+rather than a live 28px backdrop blur, avoiding repeated WKWebView compositing.
+
+Calendar/era formatting is cached for the current date, the native clock shares
+the timer's 1Hz update, and the 3-day heatmap uses React.memo to avoid remounting
+144 decorative cells every second. The engine prunes activity data about once a
+minute and checkpoints a running timer every 2 minutes (also on transitions and
+completion). Cloud sync starts no background timer on an unpaired PC, and paired
+PCs upload on a 30-minute cadence.
+
+**Performance target:** reduce M2's observed ~6% CPU to <=0.6% during a stable
+visible countdown. This is a target; verify with Activity Monitor on the actual
+M2 Mac (same desktop background and monitor). Automated CI tests validate
+functionality and platform builds but cannot assert a CPU percentage.
