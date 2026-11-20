@@ -45,7 +45,7 @@ create and connect the private store in the Vercel dashboard.
   from that PC's next uploaded snapshot.
 - The web aggregator adds seconds across PCs, capped at 900 per slot. Without
   second-level source data, overlapping activity may be overcounted within a slot.
-- The client uploads automatically at most once per 60 minutes, plus user-requested
+- The client uploads automatically at most once per 30 minutes, plus user-requested
   manual uploads, to control Hobby Blob write-operation usage.
 - The device token is stored in the native app's local WebView storage, not a
   cloud plaintext setting. Keep the PC profile secure. Disconnecting locally
