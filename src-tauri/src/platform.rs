@@ -125,6 +125,11 @@ pub fn sample() -> (Option<f64>, bool) {
 #[cfg(target_os = "macos")]
 pub fn sample() -> (Option<f64>, bool) {
     use std::ffi::{c_char, c_void};
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{Duration, Instant};
+    // Session dictionaries allocate CF objects. Checking once every five
+    // seconds is sufficient for idle/lock fallback and avoids 1Hz allocations.
+    static LOCK_CACHE: OnceLock<Mutex<(Instant, bool)>> = OnceLock::new();
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
         fn CGEventSourceSecondsSinceLastEventType(state: i32, event: u32) -> f64;
@@ -142,8 +147,14 @@ pub fn sample() -> (Option<f64>, bool) {
         fn CFRelease(value: *const c_void);
     }
     unsafe {
-        // Combined session state, any input event. No Accessibility/input monitoring hook.
+        // Fast CoreGraphics event timestamp; no event tap or key logging.
         let idle = CGEventSourceSecondsSinceLastEventType(0, u32::MAX);
+        let idle = if idle.is_finite() && idle >= 0. { Some(idle) } else { None };
+        let cache = LOCK_CACHE.get_or_init(|| Mutex::new((Instant::now() - Duration::from_secs(6), false)));
+        let mut cached = cache.lock().unwrap();
+        if cached.0.elapsed() < Duration::from_secs(5) {
+            return (idle, cached.1);
+        }
         let dict = CGSessionCopyCurrentDictionary();
         let mut locked = dict.is_null();
         if !dict.is_null() {
@@ -159,14 +170,9 @@ pub fn sample() -> (Option<f64>, bool) {
             CFRelease(key);
             CFRelease(dict);
         }
-        (
-            if idle.is_finite() && idle >= 0. {
-                Some(idle)
-            } else {
-                None
-            },
-            locked,
-        )
+        cached.0 = Instant::now();
+        cached.1 = locked;
+        (idle, locked)
     }
 }
 
