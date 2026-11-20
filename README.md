@@ -55,3 +55,25 @@ Local only: no accounts, telemetry or cloud. Reads input age, never keystroke co
 ## Build or contribute
 
 [Build from source](docs/BUILDING.md) · [Report a bug](https://github.com/sourcekatsudon/ADHDCoffeeTimer/issues) · [Platform status](docs/PLATFORMS.md) · [MIT License](LICENSE) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+
+## Multiple-PC focus history (opt in)
+
+The native app now includes **Settings → Cloud sync**. Existing local activity
+stays local until you connect the PC. To join your Google account:
+
+1. Open [ADHD Coffee Time Focus](https://adhd-coffee-focus.vercel.app) and sign in with Google.
+2. Select **Get pairing code** and copy the 16-character code (one use; 10-minute validity).
+3. On **each PC**, open **Settings → Cloud sync**, paste the code and select **Connect**.
+4. The app uploads only its local activity cells, at most once per hour automatically;
+   use **Sync now** for a manual refresh. In the website, the account's devices are
+   merged into a seven-day 15-minute activity heatmap.
+
+A separate pairing code is required for each computer. The web dashboard merges
+per-device seconds in each 15-minute cell, capped at 900 seconds (this is an
+approximation if two PCs were running simultaneously). The local 3-day / expanded
+7-day display remains independent of the account-level website. Disabling focus
+history on the device also pauses uploads, while disconnecting stops uploading
+from that PC. Do not share pairing codes or local device tokens.
+
+The backend requires a Google OAuth web application and a private Vercel Blob
+store. See [web/README.md](web/README.md) for setup and access controls.

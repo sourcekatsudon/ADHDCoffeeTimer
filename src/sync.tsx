@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Snapshot } from './model';
 import { native } from './bridge';
 
-export const CLOUD_BASE = 'https://adhd-coffee-focus-photors-projects.vercel.app';
+export const CLOUD_BASE = 'https://adhd-coffee-focus.vercel.app';
 const KEY = 'adhd-coffee-sync-v1';
 const DEVICE_KEY = 'adhd-coffee-sync-device-v1';
 const LAST_KEY = 'adhd-coffee-sync-last-v1';
@@ -87,9 +87,9 @@ export function SyncSettings({ state }: { state: Snapshot }) {
   const [message, setMessage] = useState('');
   async function act(operation: () => Promise<void>) {
     setBusy(true); setError(''); setMessage('');
-    try { await operation(); setPaired(connectedPc()); setLast(lastSyncAt()); }
+    try { await operation(); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
+    finally { setPaired(connectedPc()); setLast(lastSyncAt()); setBusy(false); }
   }
   return <section className="setting-group sync-setting">
     <div className="setting-row">
