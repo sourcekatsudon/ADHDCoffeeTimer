@@ -75,6 +75,10 @@ export function HistoryView({ state }: { state: Snapshot }) {
   const [error, setError] = useState('');
   const days = useHistory(state);
   const lang = state.settings.language;
+  const totalToday = Math.round(days[0].slots.reduce((acc, slot) => acc + slot.seconds, 0) / 60);
+  const todaySummary = lang === 'ja'
+    ? '今日 ' + Math.floor(totalToday / 60) + '時間' + totalToday % 60 + '分'
+    : 'Today ' + Math.floor(totalToday / 60) + 'h ' + totalToday % 60 + 'm';
   const selectedDate = selected ? new Date(selected.start * 1000) : null;
   const clearedLabel = lang === 'ja' ? '光るセルをクリックすると記録を消去' : 'Click a lit cell to clear';
   return (
@@ -85,7 +89,7 @@ export function HistoryView({ state }: { state: Snapshot }) {
       dir="ltr"
     >
       <header className="history-popup-heading">
-        <div><strong>{heading(lang)}</strong><p>{lang === 'ja' ? 'タイマーが実際に動いていた時間を表示します' : 'Actual timer running time'}</p></div>
+        <div><strong>{heading(lang)}</strong><p>{todaySummary} · {lang === 'ja' ? 'タイマーの実稼働時間' : 'Actual timer running time'}</p></div>
         <button className="history-popup-close" aria-label={lang === 'ja' ? '閉じる' : 'Close'} onClick={() => void command('history-leave')}>×</button>
       </header>
       <div className="history-popup-axis"><span />{HOURS.map(h => <span key={h}>{h}</span>)}</div>
