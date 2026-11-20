@@ -31,10 +31,11 @@ struct Runtime {
     history: Mutex<WorkHistory>,
     recent_reward: Mutex<Option<(i64, Instant)>>,
     history_hover: AtomicU64,
+    reward_generation: AtomicU64,
 }
 
 const TIMER_WIDTH: f64 = 172.;
-const TIMER_HEIGHT: f64 = 570.;
+const TIMER_HEIGHT: f64 = 542.;
 const LEGACY_TIMER_HEIGHT: f64 = 474.;
 fn timer_height(s: &Settings) -> f64 {
     if s.history_enabled {
@@ -382,6 +383,7 @@ fn save_settings(app: tauri::AppHandle, mut settings: Settings) -> Result<(), St
         return Err(error);
     }
     if !settings.history_enabled {
+        rt.reward_generation.fetch_add(1, Ordering::Relaxed);
         if let Some(w) = app.get_webview_window("history") {
             let _ = w.destroy();
         }
@@ -766,6 +768,44 @@ fn show_history(app: &tauri::AppHandle) {
     }
     let _ = w.show();
     glass(&w);
+    // Showing the history must never bury an already-open duration selector.
+    keep_selector_above_history(app);
+}
+
+// Windows keeps frameless overlays in the topmost band. Explicitly reorder the
+// selector after each history/selector show, rather than relying on show order.
+fn keep_selector_above_history(app: &tauri::AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        let Some(selector) = app.get_webview_window("selector") else {
+            return;
+        };
+        if !selector.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = app.run_on_main_thread(move || {
+            #[link(name = "user32")]
+            extern "system" {
+                fn SetWindowPos(
+                    hwnd: isize,
+                    after: isize,
+                    x: i32,
+                    y: i32,
+                    width: i32,
+                    height: i32,
+                    flags: u32,
+                ) -> i32;
+            }
+            if let Ok(hwnd) = selector.hwnd() {
+                // HWND_TOPMOST, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE.
+                unsafe {
+                    let _ = SetWindowPos(hwnd.0 as isize, -1, 0, 0, 0, 0, 0x0013);
+                }
+            }
+        });
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = app;
 }
 
 fn show_selector(app: &tauri::AppHandle) {
@@ -800,6 +840,7 @@ fn show_selector(app: &tauri::AppHandle) {
         let _ = selector.set_position(PhysicalPosition::new(x, y));
     }
     let _ = selector.show();
+    keep_selector_above_history(app);
     let _ = app.emit("selector-show", ());
 }
 
@@ -1002,6 +1043,7 @@ pub fn run() {
                 history: Mutex::new(history),
                 recent_reward: Mutex::new(None),
                 history_hover: AtomicU64::new(0),
+                reward_generation: AtomicU64::new(0),
             });
             // Only the small timer owns a WebView while resident. Temporary
             // windows are created on demand and destroyed after use.
@@ -1090,20 +1132,48 @@ pub fn run() {
                         completed_slot = rt.history.lock().unwrap().record(wall, charged);
                     }
                     if due {
-                        // Existing break notice is shown first; the history overlay then
-                        // opens above it so the completion glow remains visible.
+                        // Show "take a break" and its history panel now. The reward
+                        // starts exactly two seconds after the notification appears.
                         notify(&handle, true);
                         if track {
                             if let Some(slot) = completed_slot {
-                                *rt.recent_reward.lock().unwrap() = Some((slot, Instant::now()));
+                                *rt.recent_reward.lock().unwrap() = None;
+                                let reward_id =
+                                    rt.reward_generation.fetch_add(1, Ordering::Relaxed) + 1;
                                 show_history(&handle);
-                                let generation =
+                                let hover_generation =
                                     rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
                                 let later = handle.clone();
                                 std::thread::spawn(move || {
-                                    std::thread::sleep(Duration::from_secs(7));
+                                    std::thread::sleep(Duration::from_secs(2));
                                     let rt = later.state::<Runtime>();
-                                    if rt.history_hover.load(Ordering::Relaxed) == generation {
+                                    let enabled =
+                                        rt.engine.lock().unwrap().settings.history_enabled;
+                                    if !enabled
+                                        || rt.reward_generation.load(Ordering::Relaxed) != reward_id
+                                    {
+                                        return;
+                                    }
+                                    // If the user clears the slot during the delay,
+                                    // it must not come back just to show the reward.
+                                    let recorded = rt
+                                        .history
+                                        .lock()
+                                        .unwrap()
+                                        .visible(wall_seconds())
+                                        .iter()
+                                        .any(|cell| cell.start == slot);
+                                    if recorded {
+                                        *rt.recent_reward.lock().unwrap() =
+                                            Some((slot, Instant::now()));
+                                        broadcast(&later);
+                                    }
+                                    // Keep the history open through the complete bloom
+                                    // and settle; hover interaction overrides auto-hide.
+                                    std::thread::sleep(Duration::from_secs(8));
+                                    if rt.history_hover.load(Ordering::Relaxed)
+                                        == hover_generation
+                                    {
                                         if let Some(w) = later.get_webview_window("history") {
                                             let _ = w.hide();
                                         }

@@ -53,7 +53,6 @@ export function MiniHistory({ state, studio = false }: { state: Snapshot; studio
       onBlur={() => { if (!studio) void command('history-leave'); }}
       onClick={() => { if (!studio) void command('history-show'); }}
     >
-      <span className="history-mini-title"><span aria-hidden="true">▥</span>{heading(state.settings.language)}<span aria-hidden="true">›</span></span>
       <span className="history-mini-axis"><span />{HOURS.map(h => <span key={h}>{h}</span>)}</span>
       {days.map((day, index) => (
         <span className="history-mini-row" key={day.midnight}>
@@ -101,7 +100,7 @@ export function HistoryView({ state }: { state: Snapshot }) {
               {day.slots.map((slot, index) => (
                 <button
                   type="button"
-                  key={slot.start}
+                  key={state.rewardSlot === slot.start ? slot.start + '-reward-' + state.completed : slot.start}
                   className={'history-popup-cell' + (state.rewardSlot === slot.start ? ' just-completed' : '')}
                   data-level={intensity(slot.seconds, QUARTER)}
                   aria-label={hourLabel(day.date, lang) + ' ' + String(Math.floor(index / 4)).padStart(2, '0') + ':' + String(index % 4 * 15).padStart(2, '0') + ' ' + Math.round(slot.seconds) + 's'}

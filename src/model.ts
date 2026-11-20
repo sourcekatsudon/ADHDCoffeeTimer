@@ -5,7 +5,7 @@ export const TIMER_SCALES = { S: 0.4, M: 0.7, L: 1 } as const;
 export type TimerSize = keyof typeof TIMER_SCALES;
 export function timerDimensions(size: TimerSize, historyEnabled = false) {
   const scale = TIMER_SCALES[size];
-  return { width: 172 * scale, height: (historyEnabled ? 570 : 474) * scale, scale };
+  return { width: 172 * scale, height: (historyEnabled ? 542 : 474) * scale, scale };
 }
 export type Settings = {
   language: Language;
