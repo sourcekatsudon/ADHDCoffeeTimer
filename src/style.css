@@ -315,14 +315,16 @@ input:focus-visible {
   filter: drop-shadow(0 0 4px #f3d2c726);
 }
 .ring-fill.running {
-  transition: stroke-dashoffset 1s linear;
+  /* Discrete 1Hz update: no continuous 60fps SVG animation between seconds. */
+  transition: none;
 }
 .progress-ring .ring-aura {
   stroke: #ffdfb8;
   stroke-width: 15;
-  filter: url(#ring-bloom);
+  /* A fixed translucent aura avoids the continually re-rasterized SVG blur
+     and 10-second infinite opacity animation on WKWebView. */
+  filter: none;
   opacity: 0.32;
-  animation: ring-lamp-breathe 10s steps(40, end) infinite alternate;
 }
 .progress-ring .ring-highlight {
   stroke: #fff3dc;
@@ -331,15 +333,7 @@ input:focus-visible {
 }
 .ring-aura.running,
 .ring-highlight.running {
-  transition: stroke-dashoffset 1s linear;
-}
-@keyframes ring-lamp-breathe {
-  from {
-    opacity: 0.2;
-  }
-  to {
-    opacity: 0.62;
-  }
+  transition: none;
 }
 .ring-button:hover .ring-fill {
   stroke: #ffe4d9;
