@@ -109,6 +109,8 @@ pub struct Snapshot {
     pub duration_secs: f64,
     pub status: Status,
     pub completed: u64,
+    pub history: Vec<crate::history::HistoryCell>,
+    pub reward_slot: Option<i64>,
     pub debug: bool,
     pub error: Option<String>,
 }
@@ -179,6 +181,8 @@ impl Engine {
             duration_secs: self.duration(),
             status: self.status,
             completed: self.completed,
+            history: Vec::new(),
+            reward_slot: None,
             debug: self.debug_duration.is_some(),
             error: self.error.clone(),
         }
