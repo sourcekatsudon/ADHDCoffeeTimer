@@ -162,6 +162,32 @@ fn wall_seconds() -> i64 {
         .as_secs() as i64
 }
 
+// A tiny native tick replaces the previous full settings/history snapshot per second.
+// The 8-day activity map is sent only on state changes and infrequent refreshes.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TimerTick {
+    remaining_secs: f64,
+    status: Status,
+    clock_ms: u64,
+}
+
+fn broadcast_tick(app: &tauri::AppHandle) {
+    let Some(w) = app.get_webview_window("timer") else { return; };
+    if !w.is_visible().unwrap_or(false) { return; }
+    let rt = app.state::<Runtime>();
+    let e = rt.engine.lock().unwrap();
+    let tick = TimerTick {
+        remaining_secs: e.remaining,
+        status: e.status,
+        clock_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    };
+    let _ = app.emit_to("timer", "timer-tick", tick);
+}
+
 fn broadcast(app: &tauri::AppHandle) {
     let rt = app.state::<Runtime>();
     let snapshot = snapshot(&rt);
@@ -1171,6 +1197,7 @@ pub fn run() {
             std::thread::spawn(move || {
                 let mut last = platform::monotonic_seconds();
                 let mut checkpoint = Instant::now();
+                let mut history_refresh = Instant::now();
                 let mut old_status = Status::Waiting;
                 loop {
                     std::thread::sleep(Duration::from_secs(1));
@@ -1282,10 +1309,22 @@ pub fn run() {
                     }
                     if status != old_status {
                         update_menu(&handle);
+                        // Full snapshots are still necessary for lifecycle transitions.
+                        broadcast(&handle);
+                        if !due && old_status == Status::Running && status != Status::Running {
+                            let _ = persist(&rt);
+                        }
                         old_status = status;
+                        history_refresh = now;
+                    } else if history_refresh.elapsed() >= Duration::from_secs(60) {
+                        // Refresh the 3/7-day heatmaps once a minute, not every tick.
+                        broadcast(&handle);
+                        history_refresh = now;
+                    } else {
+                        // The only per-second IPC while counting down: 3 scalars.
+                        broadcast_tick(&handle);
                     }
-                    broadcast(&handle);
-                    if checkpoint.elapsed() >= Duration::from_secs(15) {
+                    if checkpoint.elapsed() >= Duration::from_secs(120) {
                         if let Err(error) = persist(&rt) {
                             rt.engine.lock().unwrap().error = Some(error);
                         }
