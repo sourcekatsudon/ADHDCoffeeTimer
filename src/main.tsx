@@ -15,6 +15,7 @@ import {
   timerDimensions,
   type TimerSize,
 } from './model';
+import { MiniHistory, HistoryView } from './history';
 import './style.css';
 
 type IconName = 'coffee' | 'pause' | 'play' | 'check' | 'settings' | 'close' | 'reset' | 'leaf';
@@ -344,6 +345,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
           >
             {state.error ? t('checkSettings') : t(state.status)}
           </span>
+          <MiniHistory state={state} studio={studio} />
           <div className="timer-controls">
             <button
               className="pause-button"
@@ -691,6 +693,13 @@ function SettingsView({ state }: { state: Snapshot }) {
             </div>
           </div>
           <div className="setting-row">
+            <div>
+              <span>{s.language === 'ja' ? '集中履歴とご褒美演出' : 'Focus history & completion glow'}</span>
+              <small>{s.language === 'ja' ? '3日間の表示・記録・完了時ポップアップを一括で切替' : 'Toggle recording, 3-day history and completion popup together'}</small>
+            </div>
+            <Toggle checked={s.historyEnabled} onChange={(v) => set('historyEnabled', v)} label={s.language === 'ja' ? '集中履歴' : 'Focus history'} />
+          </div>
+          <div className="setting-row">
             <span>{t('breakNotice')}</span>
             <button
               type="button"
@@ -868,6 +877,7 @@ function App() {
   if (view === 'settings') return <SettingsView state={state} />;
   if (view === 'notification') return <BreakNotification state={state} />;
   if (view === 'selector') return <Selector state={state} />;
+  if (view === 'history') return <HistoryView state={state} />;
   if (view === 'studio')
     return (
       <main className="studio">
