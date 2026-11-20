@@ -8,3 +8,10 @@ artifacts/
 src-tauri/gen/
 .playwright-mcp/
 /リリース/
+
+# Never commit OAuth or Blob storage credentials.
+**/.env
+**/.env.local
+**/.env.*.local
+**/.next/
+**/.vercel/
