@@ -94,16 +94,19 @@ function useSnapshot() {
   }, []);
   return state;
 }
-function DesktopClock({ language }: { language: Language }) {
+function DesktopClock({ language, clockMs }: { language: Language; clockMs?: number }) {
   const t = translate(language);
-  const [now, setNow] = useState(() => new Date());
+  // In Tauri, reuse the native timer tick: a second JS timer used to force a
+  // separate WebView repaint every second, even while the timer was counting.
+  const [previewClockMs, setPreviewClockMs] = useState(() => Date.now());
   useEffect(() => {
+    if (native) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     const sync = () => {
       clearInterval(timer);
       if (!document.hidden) {
-        setNow(new Date());
-        timer = setInterval(() => setNow(new Date()), 1000);
+        setPreviewClockMs(Date.now());
+        timer = setInterval(() => setPreviewClockMs(Date.now()), 1000);
       }
     };
     sync();
@@ -113,7 +116,7 @@ function DesktopClock({ language }: { language: Language }) {
       document.removeEventListener('visibilitychange', sync);
     };
   }, []);
-  const clock = formatClock(now, language);
+  const clock = formatClock(new Date(native ? (clockMs ?? Date.now()) : previewClockMs), language);
   return (
     <div className="desktop-clock" aria-label={t('nowLabel', clock)}>
       <div className="clock-date-line">
@@ -266,7 +269,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
             }
           }}
         >
-          <DesktopClock language={state.settings.language} />
+          <DesktopClock language={state.settings.language} clockMs={state.clockMs} />
           <button
             className="ring-button"
             aria-label={t('ringLabel', { minutes: state.settings.minutes })}
