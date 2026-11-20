@@ -129,7 +129,7 @@ function DesktopClock({ language }: { language: Language }) {
 
 function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean }) {
   const t = translate(state.settings.language);
-  const dimensions = timerDimensions(state.settings.timerSize);
+  const dimensions = timerDimensions(state.settings.timerSize, state.settings.historyEnabled);
   const [hint, setHint] = useState(false);
   const [error, setError] = useState('');
   const wheelAt = useRef(0);
@@ -234,7 +234,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
       dir="ltr"
     >
       <div
-        className={`timer-shell ${studio ? 'studio-timer' : ''}`}
+        className={`timer-shell ${studio ? 'studio-timer' : ''} ${!state.settings.historyEnabled ? 'no-history' : ''}`}
         onWheel={wheel}
         style={{ transform: `scale(${dimensions.scale})`, transformOrigin: 'top left' }}
         dir={languageInfo(state.settings.language).dir}
