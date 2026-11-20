@@ -32,6 +32,8 @@ struct Runtime {
 
 const TIMER_WIDTH: f64 = 172.;
 const TIMER_HEIGHT: f64 = 570.;
+const LEGACY_TIMER_HEIGHT: f64 = 474.;
+fn timer_height(s: &Settings) -> f64 { if s.history_enabled { TIMER_HEIGHT } else { LEGACY_TIMER_HEIGHT } }
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const TIMER_RADIUS: f64 = 82.;
 const HISTORY_WIDTH: f64 = 690.;
@@ -358,9 +360,9 @@ fn save_settings(app: tauri::AppHandle, mut settings: Settings) -> Result<(), St
         *rt.recent_reward.lock().unwrap() = None;
     }
     if let Some(w) = app.get_webview_window("timer") {
-        if old.timer_size != settings.timer_size {
+        if old.timer_size != settings.timer_size || old.history_enabled != settings.history_enabled {
             let scale = settings.timer_scale();
-            w.set_size(LogicalSize::new(TIMER_WIDTH * scale, TIMER_HEIGHT * scale))
+            w.set_size(LogicalSize::new(TIMER_WIDTH * scale, timer_height(&settings) * scale))
                 .map_err(|e| e.to_string())?;
             // Keep the existing position, clamped to the timer's current monitor.
             if let (Ok(position), Ok(size), Ok(Some(m))) =
@@ -519,7 +521,7 @@ fn shape_overlay(w: &WebviewWindow) {
                     .timer_scale();
                 (
                     TIMER_WIDTH * scale,
-                    TIMER_HEIGHT * scale,
+                    timer_height(&w.state::<Runtime>().engine.lock().unwrap().settings) * scale,
                     4. * scale,
                     TIMER_RADIUS * scale,
                 )
@@ -614,7 +616,8 @@ fn place_timer(app: &tauri::AppHandle, saved: Option<(i32, i32)>) {
         .unwrap()
         .settings
         .timer_scale();
-    let (width, height) = (TIMER_WIDTH * scale, TIMER_HEIGHT * scale);
+    let height = timer_height(&app.state::<Runtime>().engine.lock().unwrap().settings);
+    let (width, height) = (TIMER_WIDTH * scale, height * scale);
     if let Ok(monitors) = w.available_monitors() {
         // Accept only coordinates with the entire capsule inside a currently connected work area.
         if let Some((x, y)) = saved {
@@ -957,7 +960,7 @@ pub fn run() {
                 "timer",
                 "timer",
                 TIMER_WIDTH * scale,
-                TIMER_HEIGHT * scale,
+                timer_height(&settings) * scale,
             )?;
             place_timer(app.handle(), settings.position);
             if settings.timer_visible {
