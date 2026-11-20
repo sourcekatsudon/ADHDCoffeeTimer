@@ -54,6 +54,11 @@ export async function save(settings: Settings) {
   if (changed) preview.remainingSecs = preview.durationSecs = settings.defaultMinutes * 60;
   emitPreview();
 }
+export async function clearHistorySlot(start: number) {
+  if (native) return invoke('clear_history_slot', { start });
+  preview.history = preview.history.filter(item => item.start !== start);
+  emitPreview();
+}
 export async function setTheme(theme: ThemeId) {
   if (native) return invoke('set_theme', { theme });
   preview.settings.theme = theme;
