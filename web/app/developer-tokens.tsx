@@ -127,7 +127,7 @@ export default function DeveloperTokens({ storageConfigured }: { storageConfigur
     <div className="api-usage">
       <strong>APIの使い方</strong>
       <p>読み取りにはHTTP Bearerトークンを指定します。サーバー側の処理から呼ぶことを推奨します。</p>
-      <pre>{'curl -H "Authorization: Bearer ${FOCUS_API_TOKEN}" \\\n  "https://adhd-coffee-focus.vercel.app/api/v1/activity?days=7&detail=summary"'}</pre>
+      <pre>{'curl -H "Authorization: Bearer ${FOCUS_API_TOKEN}" "https://adhd-coffee-focus.vercel.app/api/v1/activity?days=7"'}</pre>
       <p>全PCの統合時間・PC別合計を返します。<code>detail=slots</code> で15分刻みのデータ、<code>deviceId=...</code> で1台だけ取得できます。</p>
       <a href="https://github.com/sourcekatsudon/ADHDCoffeeTimer/blob/feat/focus-history-reward/web/API.md"
          target="_blank" rel="noopener noreferrer">API仕様書を開く ↗</a>
