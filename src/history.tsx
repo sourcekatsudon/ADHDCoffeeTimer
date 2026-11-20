@@ -37,7 +37,7 @@ function intensity(seconds: number, max: number) {
   return seconds <= 0 ? 0 : Math.max(1, Math.min(4, Math.ceil((seconds / max) * 4)));
 }
 
-export function MiniHistory({ state, studio = false }: { state: Snapshot; studio?: boolean }) {
+export const MiniHistory = React.memo(function MiniHistory({ state, studio = false }: { state: Snapshot; studio?: boolean }) {
   const days = useHistory(state, 3);
   if (!state.settings.historyEnabled) return null;
   return (
@@ -66,7 +66,10 @@ export function MiniHistory({ state, studio = false }: { state: Snapshot; studio
       ))}
     </button>
   );
-}
+}, (a, b) => a.studio === b.studio
+  && a.state.history === b.state.history
+  && a.state.settings.language === b.state.settings.language
+  && a.state.settings.historyEnabled === b.state.settings.historyEnabled);
 
 export function HistoryView({ state }: { state: Snapshot }) {
   const [selected, setSelected] = useState<Slot | null>(null);
