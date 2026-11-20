@@ -5,7 +5,7 @@ export const TIMER_SCALES = { S: 0.4, M: 0.7, L: 1 } as const;
 export type TimerSize = keyof typeof TIMER_SCALES;
 export function timerDimensions(size: TimerSize) {
   const scale = TIMER_SCALES[size];
-  return { width: 172 * scale, height: 474 * scale, scale };
+  return { width: 172 * scale, height: 570 * scale, scale };
 }
 export type Settings = {
   language: Language;
@@ -31,6 +31,7 @@ export type Snapshot = {
   status: 'waiting' | 'running' | 'away' | 'paused' | 'unavailable';
   completed: number;
   history: { start: number; seconds: number }[];
+  rewardSlot: number | null;
   debug: boolean;
   error: string | null;
 };
@@ -57,6 +58,7 @@ export const initial: Snapshot = {
   status: 'waiting',
   completed: 0,
   history: [],
+  rewardSlot: null,
   debug: false,
   error: null,
 };
