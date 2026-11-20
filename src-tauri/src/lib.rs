@@ -11,7 +11,7 @@ use i18n::{text, APP_NAME};
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex,
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -31,6 +31,8 @@ struct Runtime {
     history: Mutex<WorkHistory>,
     recent_reward: Mutex<Option<(i64, Instant)>>,
     history_hover: AtomicU64,
+    history_hovered: AtomicBool,
+    completion_history_until: Mutex<Option<Instant>>,
     reward_generation: AtomicU64,
 }
 
@@ -46,8 +48,9 @@ fn timer_height(s: &Settings) -> f64 {
 }
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const TIMER_RADIUS: f64 = 82.;
-const HISTORY_WIDTH: f64 = 690.;
-const HISTORY_HEIGHT: f64 = 264.;
+// Roughly 70% of the former expanded popup in each direction.
+const HISTORY_WIDTH: f64 = 490.;
+const HISTORY_HEIGHT: f64 = 192.;
 const NOTIFICATION_WIDTH: f64 = 740.;
 const NOTIFICATION_HEIGHT: f64 = 350.;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -228,22 +231,54 @@ fn perform_action(app: tauri::AppHandle, kind: String) -> Result<(), String> {
         "toggle" => rt.engine.lock().unwrap().toggle(),
         "reset" => rt.engine.lock().unwrap().reset(),
         "history-show" => {
+            rt.history_hovered.store(true, Ordering::Relaxed);
             rt.history_hover.fetch_add(1, Ordering::Relaxed);
-            show_history(&app);
-            return Ok(());
+            return show_history(&app, false);
         }
         "history-leave" => {
+            rt.history_hovered.store(false, Ordering::Relaxed);
             let generation = rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
+            // Mouse-leave must never close a freshly completed session before
+            // the delayed achievement bloom has been presented.
+            if rt
+                .completion_history_until
+                .lock()
+                .unwrap()
+                .is_some_and(|until| Instant::now() < until)
+            {
+                return Ok(());
+            }
             let handle = app.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_millis(650));
                 let rt = handle.state::<Runtime>();
-                if rt.history_hover.load(Ordering::Relaxed) == generation {
+                let pinned = rt
+                    .completion_history_until
+                    .lock()
+                    .unwrap()
+                    .is_some_and(|until| Instant::now() < until);
+                if !pinned
+                    && !rt.history_hovered.load(Ordering::Relaxed)
+                    && rt.history_hover.load(Ordering::Relaxed) == generation
+                {
                     if let Some(w) = handle.get_webview_window("history") {
                         let _ = w.hide();
                     }
                 }
             });
+            return Ok(());
+        }
+        "history-close" => {
+            // Explicit close is always respected, including during a reward.
+            rt.reward_generation.fetch_add(1, Ordering::Relaxed);
+            rt.history_hover.fetch_add(1, Ordering::Relaxed);
+            rt.history_hovered.store(false, Ordering::Relaxed);
+            *rt.completion_history_until.lock().unwrap() = None;
+            *rt.recent_reward.lock().unwrap() = None;
+            if let Some(w) = app.get_webview_window("history") {
+                w.hide().map_err(|e| e.to_string())?;
+            }
+            broadcast(&app);
             return Ok(());
         }
         "settings" => {
@@ -384,6 +419,9 @@ fn save_settings(app: tauri::AppHandle, mut settings: Settings) -> Result<(), St
     }
     if !settings.history_enabled {
         rt.reward_generation.fetch_add(1, Ordering::Relaxed);
+        rt.history_hover.fetch_add(1, Ordering::Relaxed);
+        rt.history_hovered.store(false, Ordering::Relaxed);
+        *rt.completion_history_until.lock().unwrap() = None;
         if let Some(w) = app.get_webview_window("history") {
             let _ = w.destroy();
         }
@@ -724,22 +762,23 @@ fn show_settings(app: &tauri::AppHandle) {
         let _ = w.set_focus();
     }
 }
-fn show_history(app: &tauri::AppHandle) {
+fn show_history(app: &tauri::AppHandle, on_completion: bool) -> Result<(), String> {
     let rt = app.state::<Runtime>();
     if !rt.engine.lock().unwrap().settings.history_enabled {
-        return;
+        return Ok(());
     }
-    let Some(timer) = app.get_webview_window("timer") else {
-        return;
-    };
-    if !timer.is_visible().unwrap_or(false) {
-        return;
+    let timer = app
+        .get_webview_window("timer")
+        .ok_or_else(|| "errorHistoryWindow: timer missing".to_string())?;
+    // A completion is allowed to show history even when the user has hidden
+    // the tiny timer; otherwise a visible break notification can lack history.
+    if !on_completion && !timer.is_visible().unwrap_or(false) {
+        return Ok(());
     }
-    let popup = app
-        .get_webview_window("history")
-        .or_else(|| overlay(app, "history", "history", HISTORY_WIDTH, HISTORY_HEIGHT).ok());
-    let Some(w) = popup else {
-        return;
+    let popup = match app.get_webview_window("history") {
+        Some(w) => w,
+        None => overlay(app, "history", "history", HISTORY_WIDTH, HISTORY_HEIGHT)
+            .map_err(|e| format!("errorHistoryWindow: {e}"))?,
     };
     if let (Ok(p), Ok(size), Ok(scale)) = (
         timer.outer_position(),
@@ -764,12 +803,39 @@ fn show_history(app: &tauri::AppHandle) {
                 (area.position.y + area.size.height as i32 - height).max(area.position.y),
             );
         }
-        let _ = w.set_position(PhysicalPosition::new(x, y));
+        let _ = popup.set_position(PhysicalPosition::new(x, y));
     }
-    let _ = w.show();
-    glass(&w);
-    // Showing the history must never bury an already-open duration selector.
+    popup
+        .show()
+        .map_err(|e| format!("errorHistoryWindow: {e}"))?;
+    glass(&popup);
+    // The break notice and history are separate topmost native windows.
+    // Raise history above the notice, but keep the time selector above both.
+    #[cfg(target_os = "windows")]
+    {
+        let raised = popup.clone();
+        let _ = app.run_on_main_thread(move || {
+            #[link(name = "user32")]
+            extern "system" {
+                fn SetWindowPos(
+                    hwnd: isize,
+                    after: isize,
+                    x: i32,
+                    y: i32,
+                    width: i32,
+                    height: i32,
+                    flags: u32,
+                ) -> i32;
+            }
+            if let Ok(hwnd) = raised.hwnd() {
+                unsafe {
+                    let _ = SetWindowPos(hwnd.0 as isize, -1, 0, 0, 0, 0, 0x0013);
+                }
+            }
+        });
+    }
     keep_selector_above_history(app);
+    Ok(())
 }
 
 // Windows keeps frameless overlays in the topmost band. Explicitly reorder the
@@ -1043,6 +1109,8 @@ pub fn run() {
                 history: Mutex::new(history),
                 recent_reward: Mutex::new(None),
                 history_hover: AtomicU64::new(0),
+                history_hovered: AtomicBool::new(false),
+                completion_history_until: Mutex::new(None),
                 reward_generation: AtomicU64::new(0),
             });
             // Only the small timer owns a WebView while resident. Temporary
@@ -1132,53 +1200,82 @@ pub fn run() {
                         completed_slot = rt.history.lock().unwrap().record(wall, charged);
                     }
                     if due {
-                        // Show "take a break" and its history panel now. The reward
-                        // starts exactly two seconds after the notification appears.
                         notify(&handle, true);
                         if track {
-                            if let Some(slot) = completed_slot {
-                                *rt.recent_reward.lock().unwrap() = None;
-                                let reward_id =
-                                    rt.reward_generation.fetch_add(1, Ordering::Relaxed) + 1;
-                                show_history(&handle);
-                                let hover_generation =
-                                    rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
-                                let later = handle.clone();
-                                std::thread::spawn(move || {
-                                    std::thread::sleep(Duration::from_secs(2));
-                                    let rt = later.state::<Runtime>();
-                                    let enabled =
-                                        rt.engine.lock().unwrap().settings.history_enabled;
-                                    if !enabled
-                                        || rt.reward_generation.load(Ordering::Relaxed) != reward_id
-                                    {
-                                        return;
+                            // Showing the history is independent of whether a slot
+                            // happened to receive seconds in this exact tick.
+                            // Previously this guard sporadically skipped the popup.
+                            let reward_slot = {
+                                let h = rt.history.lock().unwrap();
+                                match completed_slot {
+                                    Some(slot) => h.contains_slot(slot).then_some(slot),
+                                    None => h.recent_slot(wall_seconds()),
+                                }
+                            };
+                            *rt.recent_reward.lock().unwrap() = None;
+                            let reward_id =
+                                rt.reward_generation.fetch_add(1, Ordering::Relaxed) + 1;
+                            rt.history_hover.fetch_add(1, Ordering::Relaxed);
+                            *rt.completion_history_until.lock().unwrap() =
+                                Some(Instant::now() + Duration::from_secs(10));
+                            let first_shown = show_history(&handle, true).is_ok();
+                            let later = handle.clone();
+                            std::thread::spawn(move || {
+                                let started = Instant::now();
+                                // Overlay creation can fail while another native
+                                // window is showing. Retry rather than silently
+                                // discarding the user's completion feedback.
+                                if !first_shown {
+                                    for _ in 0..4 {
+                                        std::thread::sleep(Duration::from_millis(180));
+                                        let rt = later.state::<Runtime>();
+                                        if rt.reward_generation.load(Ordering::Relaxed) != reward_id {
+                                            return;
+                                        }
+                                        if show_history(&later, true).is_ok() {
+                                            break;
+                                        }
                                     }
-                                    // If the user clears the slot during the delay,
-                                    // it must not come back just to show the reward.
-                                    let recorded = rt
-                                        .history
-                                        .lock()
-                                        .unwrap()
-                                        .visible(wall_seconds())
-                                        .iter()
-                                        .any(|cell| cell.start == slot);
-                                    if recorded {
-                                        *rt.recent_reward.lock().unwrap() =
-                                            Some((slot, Instant::now()));
-                                        broadcast(&later);
+                                }
+                                std::thread::sleep(
+                                    Duration::from_secs(2).saturating_sub(started.elapsed()),
+                                );
+                                let rt = later.state::<Runtime>();
+                                if rt.reward_generation.load(Ordering::Relaxed) != reward_id {
+                                    return;
+                                }
+                                // A second show/raise ensures that the popup is
+                                // visible above "take a break" before the bloom.
+                                let mut shown = show_history(&later, true).is_ok();
+                                for _ in 0..3 {
+                                    if shown {
+                                        break;
                                     }
-                                    // Keep the history open through the complete bloom
-                                    // and settle; hover interaction overrides auto-hide.
-                                    std::thread::sleep(Duration::from_secs(8));
-                                    if rt.history_hover.load(Ordering::Relaxed) == hover_generation
-                                    {
+                                    std::thread::sleep(Duration::from_millis(180));
+                                    shown = show_history(&later, true).is_ok();
+                                }
+                                if shown {
+                                    if let Some(slot) = reward_slot {
+                                        // Respect cells cleared during the 2s delay.
+                                        if rt.history.lock().unwrap().contains_slot(slot) {
+                                            *rt.recent_reward.lock().unwrap() =
+                                                Some((slot, Instant::now()));
+                                        }
+                                    }
+                                    broadcast(&later);
+                                }
+                                // Keep the popup through the full reward animation;
+                                // only auto-hide if the pointer has left it.
+                                std::thread::sleep(Duration::from_secs(8));
+                                if rt.reward_generation.load(Ordering::Relaxed) == reward_id {
+                                    *rt.completion_history_until.lock().unwrap() = None;
+                                    if !rt.history_hovered.load(Ordering::Relaxed) {
                                         if let Some(w) = later.get_webview_window("history") {
                                             let _ = w.hide();
                                         }
                                     }
-                                });
-                            }
+                                }
+                            });
                         }
                         let _ = persist(&rt);
                     }

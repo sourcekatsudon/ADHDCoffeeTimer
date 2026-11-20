@@ -88,7 +88,7 @@ export function HistoryView({ state }: { state: Snapshot }) {
     >
       <header className="history-popup-heading">
         <div><strong>{heading(lang, 7)}</strong><p>{todaySummary} · {lang === 'ja' ? 'タイマーの実稼働時間' : 'Actual timer running time'}</p></div>
-        <button className="history-popup-close" aria-label={lang === 'ja' ? '閉じる' : 'Close'} onClick={() => void command('history-leave')}>×</button>
+        <button className="history-popup-close" aria-label={lang === 'ja' ? '閉じる' : 'Close'} onClick={() => void command('history-close')}>×</button>
       </header>
       <div className="history-popup-axis"><span />{HOURS.map(h => <span key={h}>{h}</span>)}</div>
       <div className="history-popup-days">

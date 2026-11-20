@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SLOT_SECONDS: i64 = 15 * 60;
-const RETAIN_SECONDS: i64 = 5 * 24 * 60 * 60;
+// Keep a full seven calendar days even across timezone / daylight-saving boundaries.
+const RETAIN_SECONDS: i64 = 8 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -70,6 +71,23 @@ impl WorkHistory {
         last_slot
     }
 
+    /// A completion can arrive on a later scheduler tick with no counted
+    /// seconds in that exact tick. Find a still-recorded, recent active slot.
+    pub fn recent_slot(&self, now: i64) -> Option<i64> {
+        self.visible(now)
+            .into_iter()
+            .filter(|cell| cell.start <= now && cell.start + SLOT_SECONDS >= now - SLOT_SECONDS)
+            .map(|cell| cell.start)
+            .max()
+    }
+
+    pub fn contains_slot(&self, start: i64) -> bool {
+        self.slots
+            .get(&start)
+            .is_some_and(|seconds| seconds.is_finite() && *seconds > 0.0)
+            && !self.removed.contains(&start)
+    }
+
     pub fn clear(&mut self, start: i64, now: i64) -> Result<(), String> {
         if start.rem_euclid(SLOT_SECONDS) != 0
             || start < now - RETAIN_SECONDS
@@ -121,6 +139,28 @@ mod tests {
         assert!(h.record(1000.0, 120.0).is_none());
         assert!(h.clear(901, 1000).is_err());
         assert!(h.visible(1000).is_empty());
+    }
+
+    #[test]
+    fn a_full_seven_days_of_recorded_activity_remains_visible() {
+        let mut h = WorkHistory::default();
+        h.record(1_000_000.0, 1.0);
+        assert!(h.contains_slot(999_900));
+        let after_seven_days = 1_000_000 + 7 * 24 * 60 * 60;
+        assert!(h.visible(after_seven_days).iter().any(|cell| cell.start == 999_900));
+        assert_eq!(h.recent_slot(after_seven_days), None);
+        h.record((1_000_000 + 9 * 24 * 60 * 60) as f64, 1.0);
+        assert!(!h.contains_slot(999_900));
+    }
+
+    #[test]
+    fn a_cleared_cell_is_never_selected_for_completion_reward() {
+        let mut h = WorkHistory::default();
+        h.record(2_000.0, 1.0);
+        assert_eq!(h.recent_slot(2_000), Some(1_800));
+        h.clear(1_800, 2_000).unwrap();
+        assert_eq!(h.recent_slot(2_000), None);
+        assert!(!h.contains_slot(1_800));
     }
 
     #[test]
