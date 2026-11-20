@@ -1597,11 +1597,11 @@ html:not([lang='ja']) .clock-weekday {
 }
 .history-popup {
   position: relative;
-  margin: 4px;
-  width: 682px;
-  height: 256px;
-  padding: 18px 20px 14px;
-  border-radius: 26px;
+  margin: 3px;
+  width: 484px;
+  height: 186px;
+  padding: 9px 12px 6px;
+  border-radius: 18px;
   color: var(--text);
   overflow: hidden;
   background:
@@ -1614,29 +1614,28 @@ html:not([lang='ja']) .clock-weekday {
   to { opacity: 1; transform: scale(1) translateX(0); }
 }
 .history-popup-heading { display: flex; align-items: flex-start; justify-content: space-between; }
-.history-popup-heading strong { font-size: 16px; font-weight: 600; letter-spacing: .025em; }
-.history-popup-heading p { font-size: 10px; opacity: .72; margin: 5px 0 0; }
-.history-popup-close { font-size: 22px; line-height: 20px; opacity: .72; padding: 0 4px; }
+.history-popup-heading strong { font-size: 12px; font-weight: 600; letter-spacing: .015em; }
+.history-popup-heading p { font-size: 8px; opacity: .72; margin: 0; line-height: 1.15; }
+.history-popup-close { font-size: 16px; line-height: 16px; opacity: .72; padding: 0 3px; }
 .history-popup-close:hover { opacity: 1; }
 .history-popup-axis {
-  margin: 26px 5px 10px 65px;
+  margin: 5px 2px 3px 50px;
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 8px;
   font-variant-numeric: tabular-nums;
   opacity: .88;
 }
 .history-popup-axis > span:first-child { display: none; }
-.history-popup-days { display: flex; flex-direction: column; gap: 12px; }
-.history-popup-row { display: flex; align-items: center; gap: 8px; height: 30px; }
-.history-popup-day { flex: 0 0 64px; font-size: 10px; white-space: nowrap; }
-.history-popup-day small { display: block; font-size: 9px; opacity: .64; margin-top: 1px; }
+.history-popup-days { display: flex; flex-direction: column; gap: 3px; }
+.history-popup-row { display: flex; align-items: center; gap: 5px; height: 13px; }
+.history-popup-day { flex: 0 0 45px; font-size: 9px; white-space: nowrap; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .history-popup-cells { flex: 1; display: grid; grid-template-columns: repeat(96, minmax(0, 1fr)); gap: 1px; min-width: 0; }
 .history-popup-cell {
   width: 100%;
-  height: 15px;
+  height: 10px;
   padding: 0;
-  border-radius: 2px;
+  border-radius: 1.5px;
   background: rgba(220,230,242,.16);
   transition: background .16s, box-shadow .16s;
   position: relative;
@@ -1649,19 +1648,19 @@ html:not([lang='ja']) .clock-weekday {
   z-index: 2;
 }
 .history-popup-footer {
-  margin-top: 13px;
-  padding-top: 9px;
+  margin-top: 5px;
+  padding-top: 4px;
   border-top: 1px solid #ffffff35;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 8px;
   opacity: .85;
   font-variant-numeric: tabular-nums;
 }
-.history-popup-legend { display: inline-flex; gap: 5px; }
-.history-popup-legend i { display: block; width: 10px; height: 10px; border-radius: 2px; background: rgba(220,230,242,.2); }
-.history-popup-error { font-size: 9px; color: #ffddd2; position: absolute; bottom: 2px; }
+.history-popup-legend { display: inline-flex; gap: 3px; }
+.history-popup-legend i { display: block; width: 7px; height: 7px; border-radius: 1px; background: rgba(220,230,242,.2); }
+.history-popup-error { font-size: 8px; color: #ffddd2; position: absolute; bottom: 1px; }
 /* Achievement bloom: a powerful warm flare around the winning cell,
    returning exactly to that cell's normal activity intensity. */
 .history-popup-cell.just-completed {
@@ -1730,3 +1729,13 @@ html:not([lang='ja']) .clock-weekday {
 .timer-shell.no-history { height: 474px; }
 .no-history .capsule { height: 466px; }
 .no-history .timer-controls { position: static; bottom: auto; margin-top: 25px; }
+
+/* History display switch is always near the beginning of Settings. */
+.focus-history-setting { margin-bottom: 10px; }
+.focus-history-setting .setting-row { align-items: center; }
+.focus-history-setting .setting-row > div:first-child { flex: 1; }
+.focus-history-setting small { display: block; max-width: 36em; line-height: 1.5; }
+.focus-history-choice { display: inline-flex; flex: 0 0 auto; gap: 4px; padding: 3px; border: 1px solid #ffffff35; border-radius: 11px; background: #10253c28; }
+.focus-history-choice button { min-width: 45px; padding: 8px 7px; border-radius: 8px; font-size: 11px; font-weight: 600; opacity: .7; }
+.focus-history-choice button.active { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--text); opacity: 1; }
+.focus-history-choice button:not(.active):hover { background: var(--hover); opacity: 1; }

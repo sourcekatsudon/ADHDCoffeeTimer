@@ -27,7 +27,7 @@ I'm impatient. I bought a physical Pomodoro timer, but starting it every time fe
 - Break reminders with a soft optional chime, off by default.
 - **Seven pastel themes**, opacity, **S/M/L (40%/70%/100%)**, and **10 languages**.
 - Tray/menu-bar residency, optional login startup, and saved preferences.
-- **Focus history:** a discreet three-row activity heatmap for today, yesterday, and the day before. Hover to enlarge the 15-minute cells (0–24h) and click a lit cell to clear its record.
+- **Focus history:** a discreet three-row activity heatmap on the timer; hover to see the last **seven days** in a compact 15-minute (0–24h) grid, and click a lit cell to clear its record.
 - **Gentle completion reward:** the work-history window briefly opens with a soft glow on the completed cell whenever the timer reminds you to rest. The whole focus-history feature is **on by default** and can be turned off from Settings.
 
 Focus history is stored locally in the existing app state file, and counts **only timer running seconds**—not idle or paused time. Deleted cells remain cleared, even after restart. Disabling the feature stops new recording and hides the indicator, popup and completion animation while restoring the original widget height.

@@ -12,6 +12,11 @@ describe('focus history presentation', () => {
     expect(markup).toContain('aria-label="作業の履歴（3日間）"');
   });
 
+  it('hides the mini history completely when disabled', () => {
+    const markup = renderToStaticMarkup(<MiniHistory state={{ ...initial, settings: { ...initial.settings, historyEnabled: false } }} />);
+    expect(markup).toBe('');
+  });
+
   it('marks only the earned quarter-hour cell for the completion animation', () => {
     const today = new Date();
     today.setHours(14, 0, 0, 0);
@@ -23,8 +28,9 @@ describe('focus history presentation', () => {
       history: [{ start, seconds: 720 }],
     };
     const markup = renderToStaticMarkup(<HistoryView state={state} />);
-    expect((markup.match(/history-popup-row"/g) ?? []).length).toBe(3);
-    expect((markup.match(/class="history-popup-cell(?:"| )/g) ?? []).length).toBe(288);
+    expect((markup.match(/history-popup-row"/g) ?? []).length).toBe(7);
+    expect((markup.match(/class="history-popup-cell(?:"| )/g) ?? []).length).toBe(672);
+    expect(markup).toContain('作業の履歴（7日間）');
     expect((markup.match(/just-completed/g) ?? []).length).toBe(1);
     expect(markup).toContain('data-level="4"');
   });

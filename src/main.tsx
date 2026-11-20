@@ -574,6 +574,22 @@ function SettingsView({ state }: { state: Snapshot }) {
         </p>
       )}
       <form onSubmit={(e) => e.preventDefault()}>
+        <section className="setting-group focus-history-setting">
+          <div className="setting-row">
+            <div>
+              <span>{s.language === 'ja' ? '作業記録の表示' : 'Focus history display'}</span>
+              <small>{s.language === 'ja'
+                ? 'タイマー本体に直近3日間、拡大画面に直近7日間の履歴を表示。OFFで記録と終了時の演出も停止します。'
+                : 'Show 3 days on the timer and 7 in the popup. OFF also stops recording and the completion reward.'}</small>
+            </div>
+            <div className="focus-history-choice" role="group" aria-label={s.language === 'ja' ? '作業記録の表示を切り替える' : 'Toggle focus history'}>
+              <button type="button" className={s.historyEnabled ? 'active' : ''} aria-pressed={s.historyEnabled}
+                onClick={() => set('historyEnabled', true)}>ON</button>
+              <button type="button" className={!s.historyEnabled ? 'active' : ''} aria-pressed={!s.historyEnabled}
+                onClick={() => set('historyEnabled', false)}>OFF</button>
+            </div>
+          </div>
+        </section>
         <section className="setting-group">
           <div className="setting-block">
             <label id="duration-label">
@@ -691,13 +707,6 @@ function SettingsView({ state }: { state: Snapshot }) {
               </button>
               <Toggle checked={s.sound} onChange={(v) => set('sound', v)} label={t('sound')} />
             </div>
-          </div>
-          <div className="setting-row">
-            <div>
-              <span>{s.language === 'ja' ? '集中履歴とご褒美演出' : 'Focus history & completion glow'}</span>
-              <small>{s.language === 'ja' ? '3日間の表示・記録・完了時ポップアップを一括で切替' : 'Toggle recording, 3-day history and completion popup together'}</small>
-            </div>
-            <Toggle checked={s.historyEnabled} onChange={(v) => set('historyEnabled', v)} label={s.language === 'ja' ? '集中履歴' : 'Focus history'} />
           </div>
           <div className="setting-row">
             <span>{t('breakNotice')}</span>

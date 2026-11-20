@@ -14,14 +14,13 @@ const hourLabel = (date: Date, lang: string) =>
   lang === 'ja'
     ? (date.getMonth() + 1) + '/' + date.getDate() + ' ' + '日月火水木金土'[date.getDay()]
     : new Intl.DateTimeFormat(lang, { month: 'numeric', day: 'numeric' }).format(date);
-const heading = (lang: string) => (lang === 'ja' ? '作業の履歴（3日間）' : 'Focus history (3 days)');
-const daysAgo = (lang: string, i: number) => (lang === 'ja' ? ['今日', '昨日', '一昨日'][i] : ['Today', 'Yesterday', '2 days ago'][i]);
+const heading = (lang: string, count = 3) => lang === 'ja' ? `作業の履歴（${count}日間）` : `Focus history (${count} days)`;
 
 type Slot = { start: number; seconds: number };
-function useHistory(state: Snapshot) {
+function useHistory(state: Snapshot, dayCount: number) {
   return useMemo(() => {
     const values = new Map(state.history.map((entry) => [entry.start, entry.seconds]));
-    return Array.from({ length: 3 }, (_, i) => {
+    return Array.from({ length: dayCount }, (_, i) => {
       const date = localDate(i);
       const midnight = date.getTime() / 1000;
       const slots: Slot[] = Array.from({ length: 96 }, (_, index) => {
@@ -32,14 +31,14 @@ function useHistory(state: Snapshot) {
       });
       return { date, midnight, slots };
     });
-  }, [state.history]);
+  }, [state.history, dayCount]);
 }
 function intensity(seconds: number, max: number) {
   return seconds <= 0 ? 0 : Math.max(1, Math.min(4, Math.ceil((seconds / max) * 4)));
 }
 
 export function MiniHistory({ state, studio = false }: { state: Snapshot; studio?: boolean }) {
-  const days = useHistory(state);
+  const days = useHistory(state, 3);
   if (!state.settings.historyEnabled) return null;
   return (
     <button
@@ -72,7 +71,7 @@ export function MiniHistory({ state, studio = false }: { state: Snapshot; studio
 export function HistoryView({ state }: { state: Snapshot }) {
   const [selected, setSelected] = useState<Slot | null>(null);
   const [error, setError] = useState('');
-  const days = useHistory(state);
+  const days = useHistory(state, 7);
   const lang = state.settings.language;
   const totalToday = Math.round(days[0].slots.reduce((acc, slot) => acc + slot.seconds, 0) / 60);
   const todaySummary = lang === 'ja'
@@ -88,14 +87,14 @@ export function HistoryView({ state }: { state: Snapshot }) {
       dir="ltr"
     >
       <header className="history-popup-heading">
-        <div><strong>{heading(lang)}</strong><p>{todaySummary} · {lang === 'ja' ? 'タイマーの実稼働時間' : 'Actual timer running time'}</p></div>
+        <div><strong>{heading(lang, 7)}</strong><p>{todaySummary} · {lang === 'ja' ? 'タイマーの実稼働時間' : 'Actual timer running time'}</p></div>
         <button className="history-popup-close" aria-label={lang === 'ja' ? '閉じる' : 'Close'} onClick={() => void command('history-leave')}>×</button>
       </header>
       <div className="history-popup-axis"><span />{HOURS.map(h => <span key={h}>{h}</span>)}</div>
       <div className="history-popup-days">
-        {days.map((day, dayIndex) => (
+        {days.map((day) => (
           <div className="history-popup-row" key={day.midnight}>
-            <div className="history-popup-day">{hourLabel(day.date, lang)}<small>{daysAgo(lang, dayIndex)}</small></div>
+            <div className="history-popup-day">{hourLabel(day.date, lang)}</div>
             <div className="history-popup-cells">
               {day.slots.map((slot, index) => (
                 <button
