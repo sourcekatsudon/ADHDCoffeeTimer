@@ -21,6 +21,7 @@ export type Settings = {
   autostart: boolean;
   autoDetect: boolean;
   timerVisible: boolean;
+  historyEnabled: boolean;
   position: [number, number] | null;
 };
 export type Snapshot = {
@@ -29,6 +30,7 @@ export type Snapshot = {
   durationSecs: number;
   status: 'waiting' | 'running' | 'away' | 'paused' | 'unavailable';
   completed: number;
+  history: { start: number; seconds: number }[];
   debug: boolean;
   error: string | null;
 };
@@ -47,12 +49,14 @@ export const initial: Snapshot = {
     autostart: true,
     autoDetect: true,
     timerVisible: true,
+    historyEnabled: true,
     position: null,
   },
   remainingSecs: 1500,
   durationSecs: 1500,
   status: 'waiting',
   completed: 0,
+  history: [],
   debug: false,
   error: null,
 };
