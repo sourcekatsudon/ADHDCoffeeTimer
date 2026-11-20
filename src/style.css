@@ -1578,22 +1578,23 @@ html:not([lang='ja']) .clock-weekday {
   border-radius: 1.5px;
   background: rgba(220,230,242,.19);
 }
-/* ~3x the previous glow radius; even short work sessions must be visible. */
+/* Calm focus cells: approximately half the surrounding glow of the previous build.
+   Do not alter the separate just-completed achievement animation. */
 .history-mini-cell[data-level="1"], .history-popup-cell[data-level="1"], .history-popup-legend i[data-level="1"] {
-  background: rgba(255,225,205,.58);
-  box-shadow: 0 0 5px 1px rgba(255,225,195,.53);
+  background: rgba(255,225,205,.52);
+  box-shadow: 0 0 2px 0 rgba(255,225,195,.24);
 }
 .history-mini-cell[data-level="2"], .history-popup-cell[data-level="2"], .history-popup-legend i[data-level="2"] {
-  background: rgba(255,230,211,.77);
-  box-shadow: 0 0 9px 2px rgba(255,213,176,.64);
+  background: rgba(255,230,211,.68);
+  box-shadow: 0 0 4px 1px rgba(255,213,176,.32);
 }
 .history-mini-cell[data-level="3"], .history-popup-cell[data-level="3"], .history-popup-legend i[data-level="3"] {
   background: #ffe5d2;
-  box-shadow: 0 0 12px 3px rgba(255,215,185,.83), 0 0 19px 5px rgba(255,185,151,.30);
+  box-shadow: 0 0 6px 1px rgba(255,215,185,.42), 0 0 10px 2px rgba(255,185,151,.16);
 }
 .history-mini-cell[data-level="4"], .history-popup-cell[data-level="4"], .history-popup-legend i[data-level="4"] {
   background: #fff4e6;
-  box-shadow: 0 0 18px 4px rgba(255,226,201,.95), 0 0 26px 7px rgba(255,186,146,.48);
+  box-shadow: 0 0 9px 2px rgba(255,226,201,.50), 0 0 13px 3px rgba(255,186,146,.22);
 }
 .history-popup {
   position: relative;
