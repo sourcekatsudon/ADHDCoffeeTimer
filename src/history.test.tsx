@@ -24,7 +24,7 @@ describe('focus history presentation', () => {
     };
     const markup = renderToStaticMarkup(<HistoryView state={state} />);
     expect((markup.match(/history-popup-row"/g) ?? []).length).toBe(3);
-    expect((markup.match(/class="history-popup-cell/g) ?? []).length).toBe(288);
+    expect((markup.match(/class="history-popup-cell(?:"| )/g) ?? []).length).toBe(288);
     expect((markup.match(/just-completed/g) ?? []).length).toBe(1);
     expect(markup).toContain('data-level="4"');
   });

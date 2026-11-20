@@ -1666,7 +1666,6 @@ html:not([lang='ja']) .clock-weekday {
    returning exactly to that cell's normal activity intensity. */
 .history-popup-cell.just-completed {
   z-index: 8;
-  isolation: isolate;
   animation: history-achievement-core 2.85s cubic-bezier(.16,.85,.25,1) both;
 }
 .history-popup-cell.just-completed::before,
@@ -1678,7 +1677,6 @@ html:not([lang='ja']) .clock-weekday {
   pointer-events: none;
   transform: translate(-50%, -50%) scale(.15);
   opacity: 0;
-  mix-blend-mode: screen;
 }
 .history-popup-cell.just-completed::before {
   width: 166px;
