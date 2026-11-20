@@ -27,6 +27,7 @@ pub struct Settings {
     pub autostart: bool,
     pub auto_detect: bool,
     pub timer_visible: bool,
+    pub history_enabled: bool,
     pub position: Option<(i32, i32)>,
 }
 impl Default for Settings {
@@ -45,6 +46,7 @@ impl Default for Settings {
             autostart: true,
             auto_detect: true,
             timer_visible: true,
+            history_enabled: true,
             position: None,
         }
     }
@@ -129,6 +131,7 @@ pub struct Engine {
     last_idle: f64,
     awaiting_input: bool,
     pub error: Option<String>,
+    pub charged_secs: f64,
 }
 impl Engine {
     pub fn new(
@@ -151,6 +154,7 @@ impl Engine {
             last_idle: f64::INFINITY,
             awaiting_input: true,
             error: None,
+            charged_secs: 0.0,
         };
         if let Some(c) = saved {
             if c.remaining.is_finite() && c.remaining > 0.0 {
@@ -241,6 +245,7 @@ impl Engine {
     /// Called at 1 Hz with monotonic elapsed time and a single OS idle-age sample.
     /// No key codes, cursor positions, or input events enter this state machine.
     pub fn tick(&mut self, elapsed: f64, idle: Option<f64>, locked: bool) -> bool {
+        self.charged_secs = 0.0;
         let Some(idle) = idle.filter(|i| i.is_finite() && *i >= 0.0) else {
             self.status = if self.manual_paused {
                 Status::Paused
@@ -304,7 +309,9 @@ impl Engine {
             return false;
         }
         self.status = Status::Running;
+        let before = self.remaining;
         self.remaining = (self.remaining - elapsed.max(0.0)).max(0.0);
+        self.charged_secs = before - self.remaining;
         // Keep a completed cycle pending during inactivity, rather than notifying an empty desk.
         if self.remaining <= 0.0 && input {
             self.completed += 1;
@@ -323,6 +330,7 @@ mod tests {
         let json = serde_json::to_value(settings).unwrap();
         assert_eq!(json["language"], "ja");
         assert_eq!(json["timerSize"], "L");
+        assert_eq!(json["historyEnabled"], true);
     }
 
     #[test]
