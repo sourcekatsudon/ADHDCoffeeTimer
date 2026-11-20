@@ -1754,3 +1754,13 @@ html:not([lang='ja']) .clock-weekday {
 .sync-actions { display: flex; gap: 7px; margin: 13px 0 8px; }
 .sync-setting .sync-error { color: #ffd5cc; }
 .sync-setting .sync-message { color: var(--accent); }
+
+/* macOS power-save: WKWebView's 28px live backdrop blur forces expensive
+   offscreen compositing whenever windows behind the timer repaint. The timer
+   already supplies multiple static frosted gradients, so retain the shape,
+   colors, and translucency without a live backdrop texture. Other overlays
+   (settings, notification, completion reward) keep their existing design. */
+body[data-platform='mac'][data-view='timer'] .capsule.glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
