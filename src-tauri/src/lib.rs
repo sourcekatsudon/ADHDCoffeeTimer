@@ -1036,6 +1036,9 @@ pub fn run() {
                         completed_slot = rt.history.lock().unwrap().record(wall, charged);
                     }
                     if due {
+                        // Existing break notice is shown first; the history overlay then
+                        // opens above it so the completion glow remains visible.
+                        notify(&handle, true);
                         if track {
                             if let Some(slot) = completed_slot {
                                 *rt.recent_reward.lock().unwrap() = Some((slot, Instant::now()));
@@ -1051,7 +1054,6 @@ pub fn run() {
                                 });
                             }
                         }
-                        notify(&handle, true);
                         let _ = persist(&rt);
                     }
                     if status != old_status {
