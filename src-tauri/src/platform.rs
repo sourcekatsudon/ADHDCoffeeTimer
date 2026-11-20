@@ -149,8 +149,13 @@ pub fn sample() -> (Option<f64>, bool) {
     unsafe {
         // Fast CoreGraphics event timestamp; no event tap or key logging.
         let idle = CGEventSourceSecondsSinceLastEventType(0, u32::MAX);
-        let idle = if idle.is_finite() && idle >= 0. { Some(idle) } else { None };
-        let cache = LOCK_CACHE.get_or_init(|| Mutex::new((Instant::now() - Duration::from_secs(6), false)));
+        let idle = if idle.is_finite() && idle >= 0. {
+            Some(idle)
+        } else {
+            None
+        };
+        let cache =
+            LOCK_CACHE.get_or_init(|| Mutex::new((Instant::now() - Duration::from_secs(6), false)));
         let mut cached = cache.lock().unwrap();
         if cached.0.elapsed() < Duration::from_secs(5) {
             return (idle, cached.1);

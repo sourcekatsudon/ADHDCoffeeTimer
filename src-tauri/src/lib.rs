@@ -164,7 +164,7 @@ fn wall_seconds() -> i64 {
 
 // A tiny native tick replaces the previous full settings/history snapshot per second.
 // The 8-day activity map is sent only on state changes and infrequent refreshes.
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TimerTick {
     remaining_secs: f64,
@@ -173,8 +173,12 @@ struct TimerTick {
 }
 
 fn broadcast_tick(app: &tauri::AppHandle) {
-    let Some(w) = app.get_webview_window("timer") else { return; };
-    if !w.is_visible().unwrap_or(false) { return; }
+    let Some(w) = app.get_webview_window("timer") else {
+        return;
+    };
+    if !w.is_visible().unwrap_or(false) {
+        return;
+    }
     let rt = app.state::<Runtime>();
     let e = rt.engine.lock().unwrap();
     let tick = TimerTick {

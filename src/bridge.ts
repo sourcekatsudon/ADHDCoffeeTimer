@@ -17,7 +17,11 @@ const observers = new Set<(s: Snapshot) => void>();
 function emitPreview() {
   observers.forEach((f) => f(cloneSnapshot(preview)));
 }
-type TimerTick = Pick<Snapshot, 'remainingSecs' | 'status'> & { clockMs: number };
+export type TimerTick = Pick<Snapshot, 'remainingSecs' | 'status'> & { clockMs: number };
+
+export function applyTimerTick(previous: Snapshot, tick: TimerTick): Snapshot {
+  return { ...previous, ...tick };
+}
 
 /** Full history/settings snapshots are infrequent. The 1 Hz clock event only
  * changes lightweight scalar fields, retaining the same history reference. */
@@ -34,7 +38,7 @@ export async function subscribe(f: (s: Snapshot) => void) {
       offTick = await listen<TimerTick>('timer-tick', (e) => {
         if (!latest) return;
         const { remainingSecs, status, clockMs } = e.payload;
-        publish({ ...latest, remainingSecs, status, clockMs });
+        publish(applyTimerTick(latest, { remainingSecs, status, clockMs }));
       });
       // get_state also supplies the existing persisted activity on startup.
       if (!latest) publish(await invoke<Snapshot>('get_state'));
