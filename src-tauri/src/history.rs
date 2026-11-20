@@ -109,7 +109,8 @@ mod tests {
         let mut h = WorkHistory::default();
         h.record(1000.0, 2.0);
         h.clear(900, 1000).unwrap();
-        let mut reloaded: WorkHistory = serde_json::from_str(&serde_json::to_string(&h).unwrap()).unwrap();
+        let mut reloaded: WorkHistory =
+            serde_json::from_str(&serde_json::to_string(&h).unwrap()).unwrap();
         reloaded.record(1001.0, 1.0);
         assert!(reloaded.visible(1001).is_empty());
     }

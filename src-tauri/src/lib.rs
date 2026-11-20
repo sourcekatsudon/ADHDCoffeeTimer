@@ -10,7 +10,10 @@ use history::WorkHistory;
 use i18n::{text, APP_NAME};
 use std::{
     path::PathBuf,
-    sync::{atomic::{AtomicU64, Ordering}, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex,
+    },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, Submenu};
@@ -33,7 +36,13 @@ struct Runtime {
 const TIMER_WIDTH: f64 = 172.;
 const TIMER_HEIGHT: f64 = 570.;
 const LEGACY_TIMER_HEIGHT: f64 = 474.;
-fn timer_height(s: &Settings) -> f64 { if s.history_enabled { TIMER_HEIGHT } else { LEGACY_TIMER_HEIGHT } }
+fn timer_height(s: &Settings) -> f64 {
+    if s.history_enabled {
+        TIMER_HEIGHT
+    } else {
+        LEGACY_TIMER_HEIGHT
+    }
+}
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const TIMER_RADIUS: f64 = 82.;
 const HISTORY_WIDTH: f64 = 690.;
@@ -132,14 +141,21 @@ fn snapshot(rt: &Runtime) -> Snapshot {
     let mut state = rt.engine.lock().unwrap().snapshot();
     if state.settings.history_enabled {
         state.history = rt.history.lock().unwrap().visible(wall_seconds());
-        state.reward_slot = rt.recent_reward.lock().unwrap().as_ref()
+        state.reward_slot = rt
+            .recent_reward
+            .lock()
+            .unwrap()
+            .as_ref()
             .and_then(|(slot, at)| (at.elapsed() < Duration::from_secs(8)).then_some(*slot));
     }
     state
 }
 
 fn wall_seconds() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 fn broadcast(app: &tauri::AppHandle) {
@@ -160,10 +176,18 @@ fn get_state(rt: State<Runtime>) -> Snapshot {
 #[tauri::command]
 fn clear_history_slot(app: tauri::AppHandle, start: i64) -> Result<(), String> {
     let rt = app.state::<Runtime>();
-    if !rt.engine.lock().unwrap().settings.history_enabled { return Err("errorSetting".into()); }
+    if !rt.engine.lock().unwrap().settings.history_enabled {
+        return Err("errorSetting".into());
+    }
     rt.history.lock().unwrap().clear(start, wall_seconds())?;
     // A cleared reward cannot reappear on the next state update.
-    if rt.recent_reward.lock().unwrap().as_ref().is_some_and(|(slot, _)| *slot == start) {
+    if rt
+        .recent_reward
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|(slot, _)| *slot == start)
+    {
         *rt.recent_reward.lock().unwrap() = None;
     }
     persist(&rt)?;
@@ -214,7 +238,9 @@ fn perform_action(app: tauri::AppHandle, kind: String) -> Result<(), String> {
                 std::thread::sleep(Duration::from_millis(650));
                 let rt = handle.state::<Runtime>();
                 if rt.history_hover.load(Ordering::Relaxed) == generation {
-                    if let Some(w) = handle.get_webview_window("history") { let _ = w.hide(); }
+                    if let Some(w) = handle.get_webview_window("history") {
+                        let _ = w.hide();
+                    }
                 }
             });
             return Ok(());
@@ -356,14 +382,20 @@ fn save_settings(app: tauri::AppHandle, mut settings: Settings) -> Result<(), St
         return Err(error);
     }
     if !settings.history_enabled {
-        if let Some(w) = app.get_webview_window("history") { let _ = w.destroy(); }
+        if let Some(w) = app.get_webview_window("history") {
+            let _ = w.destroy();
+        }
         *rt.recent_reward.lock().unwrap() = None;
     }
     if let Some(w) = app.get_webview_window("timer") {
-        if old.timer_size != settings.timer_size || old.history_enabled != settings.history_enabled {
+        if old.timer_size != settings.timer_size || old.history_enabled != settings.history_enabled
+        {
             let scale = settings.timer_scale();
-            w.set_size(LogicalSize::new(TIMER_WIDTH * scale, timer_height(&settings) * scale))
-                .map_err(|e| e.to_string())?;
+            w.set_size(LogicalSize::new(
+                TIMER_WIDTH * scale,
+                timer_height(&settings) * scale,
+            ))
+            .map_err(|e| e.to_string())?;
             // Keep the existing position, clamped to the timer's current monitor.
             if let (Ok(position), Ok(size), Ok(Some(m))) =
                 (w.outer_position(), w.outer_size(), w.current_monitor())
@@ -692,13 +724,26 @@ fn show_settings(app: &tauri::AppHandle) {
 }
 fn show_history(app: &tauri::AppHandle) {
     let rt = app.state::<Runtime>();
-    if !rt.engine.lock().unwrap().settings.history_enabled { return; }
-    let Some(timer) = app.get_webview_window("timer") else { return; };
-    if !timer.is_visible().unwrap_or(false) { return; }
-    let popup = app.get_webview_window("history").or_else(||
-        overlay(app, "history", "history", HISTORY_WIDTH, HISTORY_HEIGHT).ok());
-    let Some(w) = popup else { return; };
-    if let (Ok(p), Ok(size), Ok(scale)) = (timer.outer_position(), timer.outer_size(), timer.scale_factor()) {
+    if !rt.engine.lock().unwrap().settings.history_enabled {
+        return;
+    }
+    let Some(timer) = app.get_webview_window("timer") else {
+        return;
+    };
+    if !timer.is_visible().unwrap_or(false) {
+        return;
+    }
+    let popup = app
+        .get_webview_window("history")
+        .or_else(|| overlay(app, "history", "history", HISTORY_WIDTH, HISTORY_HEIGHT).ok());
+    let Some(w) = popup else {
+        return;
+    };
+    if let (Ok(p), Ok(size), Ok(scale)) = (
+        timer.outer_position(),
+        timer.outer_size(),
+        timer.scale_factor(),
+    ) {
         let width = (HISTORY_WIDTH * scale).round() as i32;
         let height = (HISTORY_HEIGHT * scale).round() as i32;
         let mut x = p.x + size.width as i32 + (8. * scale) as i32;
@@ -708,8 +753,14 @@ fn show_history(app: &tauri::AppHandle) {
             if x + width > area.position.x + area.size.width as i32 {
                 x = p.x - width - (8. * scale) as i32;
             }
-            x = x.clamp(area.position.x, (area.position.x + area.size.width as i32 - width).max(area.position.x));
-            y = y.clamp(area.position.y, (area.position.y + area.size.height as i32 - height).max(area.position.y));
+            x = x.clamp(
+                area.position.x,
+                (area.position.x + area.size.width as i32 - width).max(area.position.x),
+            );
+            y = y.clamp(
+                area.position.y,
+                (area.position.y + area.size.height as i32 - height).max(area.position.y),
+            );
         }
         let _ = w.set_position(PhysicalPosition::new(x, y));
     }
@@ -1032,7 +1083,10 @@ pub fn run() {
                     };
                     let mut completed_slot = None;
                     if track && charged > 0.0 {
-                        let wall = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs_f64();
+                        let wall = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs_f64();
                         completed_slot = rt.history.lock().unwrap().record(wall, charged);
                     }
                     if due {
@@ -1043,13 +1097,16 @@ pub fn run() {
                             if let Some(slot) = completed_slot {
                                 *rt.recent_reward.lock().unwrap() = Some((slot, Instant::now()));
                                 show_history(&handle);
-                                let generation = rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
+                                let generation =
+                                    rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
                                 let later = handle.clone();
                                 std::thread::spawn(move || {
                                     std::thread::sleep(Duration::from_secs(7));
                                     let rt = later.state::<Runtime>();
                                     if rt.history_hover.load(Ordering::Relaxed) == generation {
-                                        if let Some(w) = later.get_webview_window("history") { let _ = w.hide(); }
+                                        if let Some(w) = later.get_webview_window("history") {
+                                            let _ = w.hide();
+                                        }
                                     }
                                 });
                             }
@@ -1080,7 +1137,9 @@ pub fn run() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 if window.label() == "timer" {
-                    if let Some(history) = window.app_handle().get_webview_window("history") { let _ = history.hide(); }
+                    if let Some(history) = window.app_handle().get_webview_window("history") {
+                        let _ = history.hide();
+                    }
                     let _ = window.hide();
                     let rt = window.state::<Runtime>();
                     rt.engine.lock().unwrap().settings.timer_visible = false;
