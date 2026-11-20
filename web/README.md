@@ -62,6 +62,16 @@ npm run dev
 ```
 
 Server routes: `/api/auth/[...nextauth]`, `/api/pair`, `/api/device/redeem`,
-`/api/sync`, `/api/history`, and `/api/health`.
+`/api/sync`, `/api/history`, `/api/tokens`, `/api/tokens/[id]`,
+`/api/v1/activity`, and `/api/health`.
 All private history reads require Google session auth. Device writes use
 bearer tokens and cross-origin CORS for the installed Tauri client.
+
+## Read-only developer tokens
+
+After logging in, open the **開発者API** panel to create a time-limited, read-only
+account token or revoke it. The raw secret is displayed exactly once. API keys
+are not PC pairing tokens and cannot be used to upload, edit, or delete history.
+
+See [API.md](API.md) for authentication, query parameters, response schema,
+usage examples, expiration, and revocation.

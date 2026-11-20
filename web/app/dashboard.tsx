@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import DeveloperTokens from './developer-tokens';
 type Cell = { start: number; seconds: number };
 type Device = { id: string; name: string; updatedAt: number };
 type HistoryResult = { history: Cell[]; totalSeconds: number; devices: Device[]; error?: string };
@@ -111,6 +112,7 @@ export default function Dashboard({ name, email, storageConfigured }: {
           </div> : <p>まだPCが連携されていません。連携すると、作業履歴がここに表示されます。</p>}
         </section>
       </div>
+      <DeveloperTokens storageConfigured={storageConfigured} />
       <p className="privacy-note">🔒 入力内容・アプリ名・閲覧サイトは送信しません。GoogleアカウントのIDをハッシュ化して、PCごとの稼働時間だけをPrivate Blobに保存します。</p>
     </div>
   );
