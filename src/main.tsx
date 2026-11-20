@@ -856,6 +856,7 @@ function App() {
   }, [view, snapshot?.settings.historyEnabled]);
   useEffect(() => {
     document.body.dataset.view = view;
+    document.body.dataset.platform = native && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'mac' : 'other';
   }, [view]);
   useEffect(() => {
     applyTheme(document.documentElement, state?.settings.theme ?? 'mist-blue');
