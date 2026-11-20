@@ -14,6 +14,9 @@ pub struct WorkHistory {
     slots: BTreeMap<i64, f64>,
     /// Explicitly cleared slots must not light up again during an active cycle.
     removed: BTreeSet<i64>,
+    /// Cache maintenance is independent of the activity snapshot format.
+    #[serde(skip)]
+    last_pruned: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,7 +70,10 @@ impl WorkHistory {
             }
             cursor = until;
         }
-        self.prune(ended_at as i64);
+        let now = ended_at as i64;
+        if now < self.last_pruned || now - self.last_pruned >= 60 {
+            self.prune(now);
+        }
         last_slot
     }
 
@@ -102,6 +108,7 @@ impl WorkHistory {
     }
 
     fn prune(&mut self, now: i64) {
+        self.last_pruned = now;
         let oldest = now - RETAIN_SECONDS;
         self.slots.retain(|slot, _| *slot >= oldest);
         self.removed.retain(|slot| *slot >= oldest);
