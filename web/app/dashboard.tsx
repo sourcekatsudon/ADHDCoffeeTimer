@@ -80,7 +80,7 @@ export default function Dashboard({ name, email, storageConfigured }: {
         <div className="metric"><span>直近7日間</span><strong>{formatMins(days.reduce((a, d) => a + d.seconds, 0))}</strong></div>
         <div className="metric"><span>連携しているPC</span><strong>{record.devices.length}<small> 台</small></strong></div>
       </div>
-      {!storageConfigured && <div className="warning">クラウド保存領域が未接続です。VercelプロジェクトにPrivate Blobを接続してください。</div>}
+      {!storageConfigured && <div className="warning">クラウド保存領域が未接続です。VercelプロジェクトにSupabase PostgreSQLを接続してください。</div>}
       {error && <div className="warning" role="alert">{error}</div>}
       <section className="panel">
         <header className="panel-heading"><div><h2>作業の記録</h2><p>直近7日間 · 15分ごとの集中履歴 · 重複するPCは1枠15分を上限に集計</p></div><span className="panel-label">WEEKLY</span></header>
@@ -113,7 +113,7 @@ export default function Dashboard({ name, email, storageConfigured }: {
         </section>
       </div>
       <DeveloperTokens storageConfigured={storageConfigured} />
-      <p className="privacy-note">🔒 入力内容・アプリ名・閲覧サイトは送信しません。GoogleアカウントのIDをハッシュ化して、PCごとの稼働時間だけをPrivate Blobに保存します。</p>
+      <p className="privacy-note">🔒 入力内容・アプリ名・閲覧サイトは送信しません。GoogleアカウントのIDをハッシュ化して、PCごとの稼働時間だけをSupabase PostgreSQLに保存します。</p>
     </div>
   );
 }
