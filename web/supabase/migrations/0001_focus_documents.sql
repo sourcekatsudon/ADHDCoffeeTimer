@@ -15,6 +15,9 @@ create table if not exists public.focus_documents (
 
 create index if not exists focus_documents_updated_at_idx
   on public.focus_documents (updated_at);
+-- Accelerates prefix queries for devices and developer token records.
+create index if not exists focus_documents_key_prefix_idx
+  on public.focus_documents (key text_pattern_ops);
 
 alter table public.focus_documents enable row level security;
 -- Explicitly deny access to the table through anonymous / end-user keys.
