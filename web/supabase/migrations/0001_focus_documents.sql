@@ -63,7 +63,40 @@ begin
   if not found
     or coalesce((v_payload->>'used')::boolean, true)
     or coalesce((v_payload->>'expiresAt')::bigint, 0) <= v_now_ms
-    or (v_payload->>'userKey') !~ '^[0-9a-f]{64}$'
+    or coalesce((v_payload->>'userKey') !~ '^[0-9a-f]{64}
+  then
+    return;
+  end if;
+
+  update public.focus_documents as d
+  set payload = jsonb_set(v_payload, '{used}', 'true'::jsonb),
+      updated_at = now()
+  where d.key = p_pair_key;
+
+  insert into public.focus_documents (key, payload)
+  values (
+    p_token_key,
+    jsonb_build_object(
+      'userKey', v_payload->>'userKey',
+      'deviceId', p_device_id,
+      'expiresAt', p_expires_at_ms
+    )
+  );
+
+  user_key := v_payload->>'userKey';
+  return next;
+end
+$function$;
+
+revoke all on function public.focus_redeem_pairing(text, text, text, bigint)
+  from public, anon, authenticated;
+grant execute on function public.focus_redeem_pairing(text, text, text, bigint)
+  to service_role;
+
+-- Optional: run infrequently if storage grows. Device snapshots overwrite by
+-- device id; only pairing and token entries can accumulate indefinitely.
+-- Archive/revocation policy may be added later without altering app code.
+, true)
   then
     return;
   end if;
