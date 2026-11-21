@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deviceHeaders, devicePath, readBlob, storeReady, tokenPath, writeBlob, type Cell, type DeviceToken } from '../../../lib/store';
+import { deviceHeaders, devicePath, readDocument, storeReady, tokenPath, writeDocument, type Cell, type DeviceToken } from '../../../lib/store';
 
 export const runtime = 'nodejs';
 export function OPTIONS() { return new NextResponse(null, { status: 204, headers: deviceHeaders }); }
 export async function POST(req: NextRequest) {
-  if (!storeReady()) return NextResponse.json({ error: 'Private storage not connected.' }, { status: 503, headers: deviceHeaders });
+  if (!storeReady()) return NextResponse.json({ error: 'Supabase storage not connected.' }, { status: 503, headers: deviceHeaders });
   const bearer = req.headers.get('authorization')?.match(/^Bearer ([a-f0-9]{64})$/i)?.[1];
   if (!bearer) return NextResponse.json({ error: 'Device authorization required.' }, { status: 401, headers: deviceHeaders });
   try {
-    const key = await readBlob<DeviceToken>(tokenPath(bearer));
+    const key = await readDocument<DeviceToken>(tokenPath(bearer));
     if (!key || key.expiresAt < Date.now()) {
       return NextResponse.json({ error: 'Device token expired. Pair this PC again.' }, { status: 401, headers: deviceHeaders });
     }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     // Each PC owns only its own snapshot. Sending a new snapshot also propagates
     // deleted cells, without clobbering activity from a different PC.
     const updatedAt = Date.now();
-    await writeBlob(devicePath(key.userKey, key.deviceId), {
+    await writeDocument(devicePath(key.userKey, key.deviceId), {
       version: 1, deviceId: key.deviceId, deviceName: name, updatedAt, cells: validated,
     });
     return NextResponse.json({ ok: true, updatedAt }, { headers: deviceHeaders });
