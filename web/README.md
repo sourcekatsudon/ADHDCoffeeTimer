@@ -143,3 +143,17 @@ connected when the dashboard/API were built, no live Blob activity records
 are expected to exist. This migration therefore **switches the backend**
 rather than copying user data. If a Blob store was later connected and used,
 preserve its contents and migrate before deleting it.
+
+## 7日間／30日間の集中履歴
+
+Webダッシュボードの作業記録は、**7日間**と**30日間**の表示切替に対応します。
+96個の15分セルは、0:00から23:45までの1日分で、24:00はセル列の右端を示す目盛りです。
+1日内のセル間隔と日ごとの行間は以前の約半分にしています。
+
+PCアプリの保存期間を32日に延長し、Vercelの同期APIも32日分（最大3,500セル）を受け付けます。
+Supabase PostgreSQLは1台ごとに端末履歴を保存し、Webは日別に統合します。
+旧バージョンのPCから8日程度の短い履歴が届いても、同期範囲より古い蓄積済みの記録を保護します。
+ただし、新PC版で送信した範囲内で消去したセルは、次回同期時にクラウド側からも消えます。
+
+**注意：以前のPC版がすでに破棄した古い記録は復元できません。**
+今後30日分を保持するには、各PCに新しいWindows版をインストールしてください。

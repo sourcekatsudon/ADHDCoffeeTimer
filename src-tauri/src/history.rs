@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SLOT_SECONDS: i64 = 15 * 60;
-// Keep a full seven calendar days even across timezone / daylight-saving boundaries.
-const RETAIN_SECONDS: i64 = 8 * 24 * 60 * 60;
+// Keep 32 calendar days so month-long cloud sync survives local day boundaries.
+const RETAIN_SECONDS: i64 = 32 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -149,17 +149,17 @@ mod tests {
     }
 
     #[test]
-    fn a_full_seven_days_of_recorded_activity_remains_visible() {
+    fn a_full_thirty_days_of_recorded_activity_remains_visible() {
         let mut h = WorkHistory::default();
         h.record(1_000_000.0, 1.0);
         assert!(h.contains_slot(999_900));
-        let after_seven_days = 1_000_000 + 7 * 24 * 60 * 60;
+        let after_thirty_days = 1_000_000 + 30 * 24 * 60 * 60;
         assert!(h
-            .visible(after_seven_days)
+            .visible(after_thirty_days)
             .iter()
             .any(|cell| cell.start == 999_900));
-        assert_eq!(h.recent_slot(after_seven_days), None);
-        h.record((1_000_000 + 9 * 24 * 60 * 60) as f64, 1.0);
+        assert_eq!(h.recent_slot(after_thirty_days), None);
+        h.record((1_000_000 + 33 * 24 * 60 * 60) as f64, 1.0);
         assert!(!h.contains_slot(999_900));
     }
 

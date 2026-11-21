@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DeveloperTokens from './developer-tokens';
+import { buildActivityDays, type ActivityRange } from '../lib/activity-grid';
 type Cell = { start: number; seconds: number };
 type Device = { id: string; name: string; updatedAt: number };
 type HistoryResult = { history: Cell[]; totalSeconds: number; devices: Device[]; error?: string };
@@ -11,15 +12,6 @@ const formatMins = (seconds: number) => {
 const dateLabel = (date: Date) =>
   (date.getMonth() + 1) + '/' + date.getDate() + ' ' + '日月火水木金土'[date.getDay()];
 const n = (number: number) => String(number).padStart(2, '0');
-function dayCells(date: Date, lookup: Map<number, number>) {
-  return Array.from({ length: 96 }, (_, i) => {
-    const start = new Date(date);
-    start.setHours(Math.floor(i / 4), (i % 4) * 15, 0, 0);
-    const unix = start.getTime() / 1000;
-    const seconds = lookup.get(unix) ?? 0;
-    return { start: unix, seconds };
-  });
-}
 export default function Dashboard({ name, email, storageConfigured }: {
   name: string; email: string; storageConfigured: boolean;
 }) {
@@ -29,6 +21,7 @@ export default function Dashboard({ name, email, storageConfigured }: {
   const [linking, setLinking] = useState(false);
   const [code, setCode] = useState('');
   const [expiry, setExpiry] = useState(0);
+  const [range, setRange] = useState<ActivityRange>(7);
   const reload = useCallback(async () => {
     try {
       const response = await fetch('/api/history', { cache: 'no-store' });
@@ -45,16 +38,7 @@ export default function Dashboard({ name, email, storageConfigured }: {
     const id = setInterval(() => void reload(), 120_000);
     return () => clearInterval(id);
   }, [reload, storageConfigured]);
-  const days = useMemo(() => {
-    const lookup = new Map(record.history.map(v => [v.start, v.seconds]));
-    return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date();
-      day.setHours(0, 0, 0, 0);
-      day.setDate(day.getDate() - i);
-      const cells = dayCells(day, lookup);
-      return { day, cells, seconds: cells.reduce((a, v) => a + v.seconds, 0) };
-    });
-  }, [record.history]);
+  const days = useMemo(() => buildActivityDays(record.history, range), [record.history, range]);
   const today = days[0]?.seconds ?? 0;
   const issueCode = async () => {
     setLinking(true);
@@ -77,15 +61,29 @@ export default function Dashboard({ name, email, storageConfigured }: {
       </div>
       <div className="metrics">
         <div className="metric"><span>今日の集中時間</span><strong>{formatMins(today)}</strong></div>
-        <div className="metric"><span>直近7日間</span><strong>{formatMins(days.reduce((a, d) => a + d.seconds, 0))}</strong></div>
+        <div className="metric"><span>直近{range}日間</span><strong>{formatMins(days.reduce((a, d) => a + d.seconds, 0))}</strong></div>
         <div className="metric"><span>連携しているPC</span><strong>{record.devices.length}<small> 台</small></strong></div>
       </div>
       {!storageConfigured && <div className="warning">クラウド保存領域が未接続です。VercelプロジェクトにSupabase PostgreSQLを接続してください。</div>}
       {error && <div className="warning" role="alert">{error}</div>}
       <section className="panel">
-        <header className="panel-heading"><div><h2>作業の記録</h2><p>直近7日間 · 15分ごとの集中履歴 · 重複するPCは1枠15分を上限に集計</p></div><span className="panel-label">WEEKLY</span></header>
+        <header className="panel-heading"><div><h2>作業の記録</h2><p>直近{range}日間 · 15分ごとの集中履歴 · 重複するPCは1枠15分を上限に集計</p></div>
+          <div className="panel-actions">
+            <div className="range-switch" role="group" aria-label="作業記録の表示期間">
+              <button type="button" className={range === 7 ? 'active' : ''} aria-pressed={range === 7} onClick={() => setRange(7)}>7日間</button>
+              <button type="button" className={range === 30 ? 'active' : ''} aria-pressed={range === 30} onClick={() => setRange(30)}>30日間</button>
+            </div>
+            <span className="panel-label">{range === 30 ? 'MONTHLY' : 'WEEKLY'}</span>
+          </div>
+        </header>
         <div className="activity-scroll"><div className="activity">
-          <div className="ticks"><span />{[0, 6, 12, 18, 24].map(h => <span key={h}>{h}:00</span>)}</div>
+          <div className="ticks" aria-hidden="true">
+            <span />
+            <div className="tick-track">{[0, 6, 12, 18, 24].map(h =>
+              <span key={h} style={{ left: (h / 24 * 100) + '%' }}>{h}:00</span>
+            )}</div>
+            <span />
+          </div>
           {days.map((day, index) => <div className="activity-row" key={day.day.getTime()}>
             <div className="day-label"><b>{dateLabel(day.day)}</b><small>{index === 0 ? '今日' : index === 1 ? '昨日' : ''}</small></div>
             <div className="cell-row">{day.cells.map((cell, i) =>

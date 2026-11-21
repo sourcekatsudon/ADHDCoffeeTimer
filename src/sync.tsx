@@ -63,7 +63,7 @@ export async function syncNow(state: Snapshot, force = false): Promise<boolean> 
   sending = true;
   try {
     const history = state.history.filter((row) =>
-      row.start >= Math.floor(Date.now() / 1000) - 9 * 86400 && row.seconds > 0);
+      row.start >= Math.floor(Date.now() / 1000) - 32 * 86400 && row.seconds > 0);
     const response = await fetch(CLOUD_BASE + '/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + connection.token },
@@ -71,6 +71,7 @@ export async function syncNow(state: Snapshot, force = false): Promise<boolean> 
         deviceId: connection.deviceId,
         deviceName: localStorage.getItem(DEVICE_KEY + '-name') || 'Windows PC',
         history,
+        historyWindowDays: 32,
       }),
     });
     if (!response.ok) throw await asError(response);

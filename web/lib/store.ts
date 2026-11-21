@@ -168,9 +168,29 @@ export function mergeHistories(devices: DeviceHistory[]) {
     for (const cell of device.cells) {
       if (!Number.isFinite(cell.start) || cell.start % 900 !== 0 ||
           !Number.isFinite(cell.seconds) || cell.seconds < 0 || cell.seconds > 900 ||
-          cell.start < now - 9 * 86400 || cell.start > now + 900) continue;
+          cell.start < now - 32 * 86400 || cell.start > now + 900) continue;
       bySlot.set(cell.start, Math.min(900, (bySlot.get(cell.start) ?? 0) + cell.seconds));
     }
   }
   return Array.from(bySlot, ([start, seconds]) => ({ start, seconds })).sort((a, b) => a.start - b.start);
+}
+
+/** Preserve older device history when an older PC client reports only 9 days.
+ * Missing slots inside the client's reported window are treated as deletions.
+ * New 32-day clients report a complete snapshot of their 32-day coverage.
+ */
+export function mergeDeviceSnapshot(
+  previous: DeviceHistory | null,
+  incoming: Cell[],
+  now: number,
+  coverageDays: number,
+): Cell[] {
+  const oldest = now - 32 * 86400;
+  const coverageStart = now - coverageDays * 86400;
+  const older = (previous?.cells ?? []).filter(cell =>
+    Number.isInteger(cell.start) && cell.start % 900 === 0 &&
+    Number.isFinite(cell.seconds) && cell.seconds > 0 && cell.seconds <= 900 &&
+    cell.start >= oldest && cell.start < coverageStart
+  );
+  return [...older, ...incoming].sort((a, b) => a.start - b.start);
 }
