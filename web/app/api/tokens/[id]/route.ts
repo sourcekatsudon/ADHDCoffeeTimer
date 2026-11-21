@@ -13,7 +13,7 @@ export async function DELETE(
   if (request.headers.get('origin') !== request.nextUrl.origin) {
     return NextResponse.json({ error: 'Cross-site token deletion forbidden.' }, { status: 403, headers: responseHeaders });
   }
-  if (!storeReady()) return NextResponse.json({ error: 'Private storage not connected.' }, { status: 503, headers: responseHeaders });
+  if (!storeReady()) return NextResponse.json({ error: 'Supabase database not connected.' }, { status: 503, headers: responseHeaders });
   const { id } = await context.params;
   try {
     const revoked = await revokeDeveloperToken(userKey(account.id), id);
