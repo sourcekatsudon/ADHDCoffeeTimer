@@ -1,4 +1,5 @@
 use crate::engine::{Checkpoint, Settings};
+use crate::history::WorkHistory;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -10,6 +11,8 @@ use std::{
 pub struct Saved {
     pub settings: Settings,
     pub checkpoint: Checkpoint,
+    #[serde(default)]
+    pub history: WorkHistory,
 }
 
 pub fn load(path: &Path) -> Option<Saved> {
@@ -58,6 +61,7 @@ mod tests {
                 manual_paused: true,
                 completed: 3,
             },
+            history: WorkHistory::default(),
         };
         save(&path, &data).unwrap();
         save(&path, &data).unwrap();

@@ -15,6 +15,8 @@ import {
   timerDimensions,
   type TimerSize,
 } from './model';
+import { MiniHistory, HistoryView } from './history';
+import { SyncSettings, connectedPc, syncNow } from './sync';
 import './style.css';
 
 type IconName = 'coffee' | 'pause' | 'play' | 'check' | 'settings' | 'close' | 'reset' | 'leaf';
@@ -92,16 +94,19 @@ function useSnapshot() {
   }, []);
   return state;
 }
-function DesktopClock({ language }: { language: Language }) {
+function DesktopClock({ language, clockMs }: { language: Language; clockMs?: number }) {
   const t = translate(language);
-  const [now, setNow] = useState(() => new Date());
+  // In Tauri, reuse the native timer tick: a second JS timer used to force a
+  // separate WebView repaint every second, even while the timer was counting.
+  const [previewClockMs, setPreviewClockMs] = useState(() => Date.now());
   useEffect(() => {
+    if (native) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     const sync = () => {
       clearInterval(timer);
       if (!document.hidden) {
-        setNow(new Date());
-        timer = setInterval(() => setNow(new Date()), 1000);
+        setPreviewClockMs(Date.now());
+        timer = setInterval(() => setPreviewClockMs(Date.now()), 1000);
       }
     };
     sync();
@@ -111,7 +116,7 @@ function DesktopClock({ language }: { language: Language }) {
       document.removeEventListener('visibilitychange', sync);
     };
   }, []);
-  const clock = formatClock(now, language);
+  const clock = formatClock(new Date(native ? (clockMs ?? Date.now()) : previewClockMs), language);
   return (
     <div className="desktop-clock" aria-label={t('nowLabel', clock)}>
       <div className="clock-date-line">
@@ -128,7 +133,7 @@ function DesktopClock({ language }: { language: Language }) {
 
 function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean }) {
   const t = translate(state.settings.language);
-  const dimensions = timerDimensions(state.settings.timerSize);
+  const dimensions = timerDimensions(state.settings.timerSize, state.settings.historyEnabled);
   const [hint, setHint] = useState(false);
   const [error, setError] = useState('');
   const wheelAt = useRef(0);
@@ -233,7 +238,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
       dir="ltr"
     >
       <div
-        className={`timer-shell ${studio ? 'studio-timer' : ''}`}
+        className={`timer-shell ${studio ? 'studio-timer' : ''} ${!state.settings.historyEnabled ? 'no-history' : ''}`}
         onWheel={wheel}
         style={{ transform: `scale(${dimensions.scale})`, transformOrigin: 'top left' }}
         dir={languageInfo(state.settings.language).dir}
@@ -264,7 +269,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
             }
           }}
         >
-          <DesktopClock language={state.settings.language} />
+          <DesktopClock language={state.settings.language} clockMs={state.clockMs} />
           <button
             className="ring-button"
             aria-label={t('ringLabel', { minutes: state.settings.minutes })}
@@ -291,11 +296,6 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
             }}
           >
             <svg viewBox="0 0 112 112" className="progress-ring" aria-hidden="true">
-              <defs>
-                <filter id="ring-bloom" x="-60%" y="-60%" width="220%" height="220%">
-                  <feGaussianBlur stdDeviation="3.4" />
-                </filter>
-              </defs>
               <circle className="ring-track" cx="56" cy="56" r="47" />
               <circle
                 className={`ring-aura ${state.status === 'running' ? 'running' : ''}`}
@@ -344,6 +344,7 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
           >
             {state.error ? t('checkSettings') : t(state.status)}
           </span>
+          <MiniHistory state={state} studio={studio} />
           <div className="timer-controls">
             <button
               className="pause-button"
@@ -572,6 +573,23 @@ function SettingsView({ state }: { state: Snapshot }) {
         </p>
       )}
       <form onSubmit={(e) => e.preventDefault()}>
+        <section className="setting-group focus-history-setting">
+          <div className="setting-row">
+            <div>
+              <span>{s.language === 'ja' ? '作業記録の表示' : 'Focus history display'}</span>
+              <small>{s.language === 'ja'
+                ? 'タイマー本体に直近3日間、拡大画面に直近7日間の履歴を表示。OFFで記録と終了時の演出も停止します。'
+                : 'Show 3 days on the timer and 7 in the popup. OFF also stops recording and the completion reward.'}</small>
+            </div>
+            <div className="focus-history-choice" role="group" aria-label={s.language === 'ja' ? '作業記録の表示を切り替える' : 'Toggle focus history'}>
+              <button type="button" className={s.historyEnabled ? 'active' : ''} aria-pressed={s.historyEnabled}
+                onClick={() => set('historyEnabled', true)}>ON</button>
+              <button type="button" className={!s.historyEnabled ? 'active' : ''} aria-pressed={!s.historyEnabled}
+                onClick={() => set('historyEnabled', false)}>OFF</button>
+            </div>
+          </div>
+        </section>
+        <SyncSettings state={state} />
         <section className="setting-group">
           <div className="setting-block">
             <label id="duration-label">
@@ -777,6 +795,8 @@ function SettingsView({ state }: { state: Snapshot }) {
 }
 function App() {
   const snapshot = useSnapshot();
+  const latestSnapshot = useRef<Snapshot | null>(null);
+  useEffect(() => { latestSnapshot.current = snapshot; }, [snapshot]);
   const params = new URLSearchParams(location.search);
   const view = params.get('view') ?? (native ? 'timer' : 'studio');
   // These browser-only compositions render the production UI for documentation.
@@ -793,8 +813,50 @@ function App() {
   } : snapshot;
   const language = state?.settings.language ?? 'ja';
   const t = translate(language);
+  // Cloud sync is entirely dormant on an unpaired PC: no periodic timer,
+  // no reads of the activity map, and no network calls. A pairing event from
+  // Settings starts the timer immediately without restarting the application.
+  useEffect(() => {
+    if (!native || view !== 'timer') return;
+    let first: ReturnType<typeof setTimeout> | undefined;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let unsubscribe: (() => void) | undefined;
+    let disposed = false;
+    const send = () => {
+      const current = latestSnapshot.current;
+      if (current) void syncNow(current).catch(() => {
+        // Offline failures are retried at the next scheduled opportunity.
+      });
+    };
+    const configure = () => {
+      if (first !== undefined) clearTimeout(first);
+      if (interval !== undefined) clearInterval(interval);
+      first = undefined;
+      interval = undefined;
+      if (!connectedPc() || !latestSnapshot.current?.settings.historyEnabled) return;
+      first = window.setTimeout(send, 15_000);
+      interval = window.setInterval(send, 30 * 60_000);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'adhd-coffee-sync-v1') configure();
+    };
+    window.addEventListener('storage', onStorage);
+    onEvent('focus-sync-link-changed', configure).then((off) => {
+      if (disposed) off();
+      else unsubscribe = off;
+    });
+    configure();
+    return () => {
+      disposed = true;
+      if (first !== undefined) clearTimeout(first);
+      if (interval !== undefined) clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+      unsubscribe?.();
+    };
+  }, [view, snapshot?.settings.historyEnabled]);
   useEffect(() => {
     document.body.dataset.view = view;
+    document.body.dataset.platform = native && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'mac' : 'other';
   }, [view]);
   useEffect(() => {
     applyTheme(document.documentElement, state?.settings.theme ?? 'mist-blue');
@@ -868,6 +930,7 @@ function App() {
   if (view === 'settings') return <SettingsView state={state} />;
   if (view === 'notification') return <BreakNotification state={state} />;
   if (view === 'selector') return <Selector state={state} />;
+  if (view === 'history') return <HistoryView state={state} />;
   if (view === 'studio')
     return (
       <main className="studio">

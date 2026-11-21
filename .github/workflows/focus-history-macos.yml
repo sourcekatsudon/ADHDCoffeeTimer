@@ -1,0 +1,71 @@
+name: Mac installers - focus sync
+on:
+  push:
+    branches:
+      - feat/focus-history-reward
+    paths:
+      - '.github/workflows/focus-history-macos.yml'
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos-installers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            name: macos-intel-x64
+          - os: macos-15
+            target: aarch64-apple-darwin
+            name: macos-apple-silicon-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }}
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }} -- -D warnings
+      - name: Build Mac app and DMG
+        run: npm run tauri build -- --target ${{ matrix.target }} --bundles app,dmg
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+      - name: Verify installer and archive Mac app
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET="src-tauri/target/${{ matrix.target }}/release/bundle"
+          test -d "$TARGET/macos/ADHD Coffee Time.app"
+          find "$TARGET/dmg" -name '*.dmg' -type f -print -quit | grep -q .
+          codesign --verify --deep --strict "$TARGET/macos/ADHD Coffee Time.app"
+          ditto -c -k --sequesterRsrc --keepParent "$TARGET/macos/ADHD Coffee Time.app" "$TARGET/ADHD-Coffee-Time-${{ matrix.name }}.app.zip"
+          mkdir -p build-info
+          printf '%s\n' "$GITHUB_SHA" > build-info/SOURCE-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ADHD-Coffee-Time-${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/*.app.zip
+            build-info/SOURCE-COMMIT.txt

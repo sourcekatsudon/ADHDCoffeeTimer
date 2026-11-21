@@ -1,15 +1,20 @@
 mod engine;
+mod history;
 mod i18n;
 mod platform;
 mod snapping;
 mod storage;
 
 use engine::{Engine, Settings, Snapshot, Status, PRESETS};
+use history::WorkHistory;
 use i18n::{text, APP_NAME};
 use std::{
     path::PathBuf,
-    sync::Mutex,
-    time::{Duration, Instant},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Mutex,
+    },
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, Submenu};
 use tauri::{
@@ -23,12 +28,29 @@ struct Runtime {
     path: PathBuf,
     snap_targets: Mutex<Vec<snapping::Target>>,
     notification_started: Mutex<Option<Instant>>,
+    history: Mutex<WorkHistory>,
+    recent_reward: Mutex<Option<(i64, Instant)>>,
+    history_hover: AtomicU64,
+    history_hovered: AtomicBool,
+    completion_history_until: Mutex<Option<Instant>>,
+    reward_generation: AtomicU64,
 }
 
 const TIMER_WIDTH: f64 = 172.;
-const TIMER_HEIGHT: f64 = 474.;
+const TIMER_HEIGHT: f64 = 542.;
+const LEGACY_TIMER_HEIGHT: f64 = 474.;
+fn timer_height(s: &Settings) -> f64 {
+    if s.history_enabled {
+        TIMER_HEIGHT
+    } else {
+        LEGACY_TIMER_HEIGHT
+    }
+}
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 const TIMER_RADIUS: f64 = 82.;
+// Roughly 70% of the former expanded popup in each direction.
+const HISTORY_WIDTH: f64 = 490.;
+const HISTORY_HEIGHT: f64 = 192.;
 const NOTIFICATION_WIDTH: f64 = 740.;
 const NOTIFICATION_HEIGHT: f64 = 350.;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -115,15 +137,64 @@ fn persist(rt: &Runtime) -> Result<(), String> {
         &storage::Saved {
             settings: e.settings.clone(),
             checkpoint: e.checkpoint(),
+            history: rt.history.lock().map_err(|_| "errorConnect")?.clone(),
         },
     )
 }
+fn snapshot(rt: &Runtime) -> Snapshot {
+    let mut state = rt.engine.lock().unwrap().snapshot();
+    if state.settings.history_enabled {
+        state.history = rt.history.lock().unwrap().visible(wall_seconds());
+        state.reward_slot = rt
+            .recent_reward
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|(slot, at)| (at.elapsed() < Duration::from_secs(8)).then_some(*slot));
+    }
+    state
+}
+
+fn wall_seconds() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+// A tiny native tick replaces the previous full settings/history snapshot per second.
+// The 8-day activity map is sent only on state changes and infrequent refreshes.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TimerTick {
+    remaining_secs: f64,
+    status: Status,
+    clock_ms: u64,
+}
+
+fn broadcast_tick(app: &tauri::AppHandle) {
+    let Some(w) = app.get_webview_window("timer") else {
+        return;
+    };
+    if !w.is_visible().unwrap_or(false) {
+        return;
+    }
+    let rt = app.state::<Runtime>();
+    let e = rt.engine.lock().unwrap();
+    let tick = TimerTick {
+        remaining_secs: e.remaining,
+        status: e.status,
+        clock_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+    };
+    let _ = app.emit_to("timer", "timer-tick", tick);
+}
+
 fn broadcast(app: &tauri::AppHandle) {
     let rt = app.state::<Runtime>();
-    let snapshot = match rt.engine.lock() {
-        Ok(e) => e.snapshot(),
-        Err(_) => return,
-    };
+    let snapshot = snapshot(&rt);
     for (label, window) in app.webview_windows() {
         if window.is_visible().unwrap_or(false) {
             let _ = app.emit_to(label, "state", &snapshot);
@@ -133,7 +204,29 @@ fn broadcast(app: &tauri::AppHandle) {
 
 #[tauri::command]
 fn get_state(rt: State<Runtime>) -> Snapshot {
-    rt.engine.lock().unwrap().snapshot()
+    snapshot(&rt)
+}
+
+#[tauri::command]
+fn clear_history_slot(app: tauri::AppHandle, start: i64) -> Result<(), String> {
+    let rt = app.state::<Runtime>();
+    if !rt.engine.lock().unwrap().settings.history_enabled {
+        return Err("errorSetting".into());
+    }
+    rt.history.lock().unwrap().clear(start, wall_seconds())?;
+    // A cleared reward cannot reappear on the next state update.
+    if rt
+        .recent_reward
+        .lock()
+        .unwrap()
+        .as_ref()
+        .is_some_and(|(slot, _)| *slot == start)
+    {
+        *rt.recent_reward.lock().unwrap() = None;
+    }
+    persist(&rt)?;
+    broadcast(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -167,6 +260,57 @@ fn perform_action(app: tauri::AppHandle, kind: String) -> Result<(), String> {
     match kind.as_str() {
         "toggle" => rt.engine.lock().unwrap().toggle(),
         "reset" => rt.engine.lock().unwrap().reset(),
+        "history-show" => {
+            rt.history_hovered.store(true, Ordering::Relaxed);
+            rt.history_hover.fetch_add(1, Ordering::Relaxed);
+            return show_history(&app, false);
+        }
+        "history-leave" => {
+            rt.history_hovered.store(false, Ordering::Relaxed);
+            let generation = rt.history_hover.fetch_add(1, Ordering::Relaxed) + 1;
+            // Mouse-leave must never close a freshly completed session before
+            // the delayed achievement bloom has been presented.
+            if rt
+                .completion_history_until
+                .lock()
+                .unwrap()
+                .is_some_and(|until| Instant::now() < until)
+            {
+                return Ok(());
+            }
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(650));
+                let rt = handle.state::<Runtime>();
+                let pinned = rt
+                    .completion_history_until
+                    .lock()
+                    .unwrap()
+                    .is_some_and(|until| Instant::now() < until);
+                if !pinned
+                    && !rt.history_hovered.load(Ordering::Relaxed)
+                    && rt.history_hover.load(Ordering::Relaxed) == generation
+                {
+                    if let Some(w) = handle.get_webview_window("history") {
+                        let _ = w.hide();
+                    }
+                }
+            });
+            return Ok(());
+        }
+        "history-close" => {
+            // Explicit close is always respected, including during a reward.
+            rt.reward_generation.fetch_add(1, Ordering::Relaxed);
+            rt.history_hover.fetch_add(1, Ordering::Relaxed);
+            rt.history_hovered.store(false, Ordering::Relaxed);
+            *rt.completion_history_until.lock().unwrap() = None;
+            *rt.recent_reward.lock().unwrap() = None;
+            if let Some(w) = app.get_webview_window("history") {
+                w.hide().map_err(|e| e.to_string())?;
+            }
+            broadcast(&app);
+            return Ok(());
+        }
         "settings" => {
             show_settings(&app);
             return Ok(());
@@ -252,6 +396,7 @@ fn update_setting(
         "autostart",
         "autoDetect",
         "timerVisible",
+        "historyEnabled",
         "language",
         "timerSize",
     ]
@@ -302,11 +447,25 @@ fn save_settings(app: tauri::AppHandle, mut settings: Settings) -> Result<(), St
         }
         return Err(error);
     }
+    if !settings.history_enabled {
+        rt.reward_generation.fetch_add(1, Ordering::Relaxed);
+        rt.history_hover.fetch_add(1, Ordering::Relaxed);
+        rt.history_hovered.store(false, Ordering::Relaxed);
+        *rt.completion_history_until.lock().unwrap() = None;
+        if let Some(w) = app.get_webview_window("history") {
+            let _ = w.destroy();
+        }
+        *rt.recent_reward.lock().unwrap() = None;
+    }
     if let Some(w) = app.get_webview_window("timer") {
-        if old.timer_size != settings.timer_size {
+        if old.timer_size != settings.timer_size || old.history_enabled != settings.history_enabled
+        {
             let scale = settings.timer_scale();
-            w.set_size(LogicalSize::new(TIMER_WIDTH * scale, TIMER_HEIGHT * scale))
-                .map_err(|e| e.to_string())?;
+            w.set_size(LogicalSize::new(
+                TIMER_WIDTH * scale,
+                timer_height(&settings) * scale,
+            ))
+            .map_err(|e| e.to_string())?;
             // Keep the existing position, clamped to the timer's current monitor.
             if let (Ok(position), Ok(size), Ok(Some(m))) =
                 (w.outer_position(), w.outer_size(), w.current_monitor())
@@ -464,7 +623,7 @@ fn shape_overlay(w: &WebviewWindow) {
                     .timer_scale();
                 (
                     TIMER_WIDTH * scale,
-                    TIMER_HEIGHT * scale,
+                    timer_height(&w.state::<Runtime>().engine.lock().unwrap().settings) * scale,
                     4. * scale,
                     TIMER_RADIUS * scale,
                 )
@@ -559,7 +718,8 @@ fn place_timer(app: &tauri::AppHandle, saved: Option<(i32, i32)>) {
         .unwrap()
         .settings
         .timer_scale();
-    let (width, height) = (TIMER_WIDTH * scale, TIMER_HEIGHT * scale);
+    let height = timer_height(&app.state::<Runtime>().engine.lock().unwrap().settings);
+    let (width, height) = (TIMER_WIDTH * scale, height * scale);
     if let Ok(monitors) = w.available_monitors() {
         // Accept only coordinates with the entire capsule inside a currently connected work area.
         if let Some((x, y)) = saved {
@@ -632,6 +792,118 @@ fn show_settings(app: &tauri::AppHandle) {
         let _ = w.set_focus();
     }
 }
+fn show_history(app: &tauri::AppHandle, on_completion: bool) -> Result<(), String> {
+    let rt = app.state::<Runtime>();
+    if !rt.engine.lock().unwrap().settings.history_enabled {
+        return Ok(());
+    }
+    let timer = app
+        .get_webview_window("timer")
+        .ok_or_else(|| "errorHistoryWindow: timer missing".to_string())?;
+    // A completion is allowed to show history even when the user has hidden
+    // the tiny timer; otherwise a visible break notification can lack history.
+    if !on_completion && !timer.is_visible().unwrap_or(false) {
+        return Ok(());
+    }
+    let popup = match app.get_webview_window("history") {
+        Some(w) => w,
+        None => overlay(app, "history", "history", HISTORY_WIDTH, HISTORY_HEIGHT)
+            .map_err(|e| format!("errorHistoryWindow: {e}"))?,
+    };
+    if let (Ok(p), Ok(size), Ok(scale)) = (
+        timer.outer_position(),
+        timer.outer_size(),
+        timer.scale_factor(),
+    ) {
+        let width = (HISTORY_WIDTH * scale).round() as i32;
+        let height = (HISTORY_HEIGHT * scale).round() as i32;
+        let mut x = p.x + size.width as i32 + (8. * scale) as i32;
+        let mut y = p.y + (size.height as i32 - height) / 2;
+        if let Ok(Some(m)) = timer.current_monitor() {
+            let area = m.work_area();
+            if x + width > area.position.x + area.size.width as i32 {
+                x = p.x - width - (8. * scale) as i32;
+            }
+            x = x.clamp(
+                area.position.x,
+                (area.position.x + area.size.width as i32 - width).max(area.position.x),
+            );
+            y = y.clamp(
+                area.position.y,
+                (area.position.y + area.size.height as i32 - height).max(area.position.y),
+            );
+        }
+        let _ = popup.set_position(PhysicalPosition::new(x, y));
+    }
+    popup
+        .show()
+        .map_err(|e| format!("errorHistoryWindow: {e}"))?;
+    glass(&popup);
+    // The break notice and history are separate topmost native windows.
+    // Raise history above the notice, but keep the time selector above both.
+    #[cfg(target_os = "windows")]
+    {
+        let raised = popup.clone();
+        let _ = app.run_on_main_thread(move || {
+            #[link(name = "user32")]
+            extern "system" {
+                fn SetWindowPos(
+                    hwnd: isize,
+                    after: isize,
+                    x: i32,
+                    y: i32,
+                    width: i32,
+                    height: i32,
+                    flags: u32,
+                ) -> i32;
+            }
+            if let Ok(hwnd) = raised.hwnd() {
+                unsafe {
+                    let _ = SetWindowPos(hwnd.0 as isize, -1, 0, 0, 0, 0, 0x0013);
+                }
+            }
+        });
+    }
+    keep_selector_above_history(app);
+    Ok(())
+}
+
+// Windows keeps frameless overlays in the topmost band. Explicitly reorder the
+// selector after each history/selector show, rather than relying on show order.
+fn keep_selector_above_history(app: &tauri::AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        let Some(selector) = app.get_webview_window("selector") else {
+            return;
+        };
+        if !selector.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = app.run_on_main_thread(move || {
+            #[link(name = "user32")]
+            extern "system" {
+                fn SetWindowPos(
+                    hwnd: isize,
+                    after: isize,
+                    x: i32,
+                    y: i32,
+                    width: i32,
+                    height: i32,
+                    flags: u32,
+                ) -> i32;
+            }
+            if let Ok(hwnd) = selector.hwnd() {
+                // HWND_TOPMOST, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE.
+                unsafe {
+                    let _ = SetWindowPos(hwnd.0 as isize, -1, 0, 0, 0, 0, 0x0013);
+                }
+            }
+        });
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = app;
+}
+
 fn show_selector(app: &tauri::AppHandle) {
     let selector = app
         .get_webview_window("selector")
@@ -664,6 +936,7 @@ fn show_selector(app: &tauri::AppHandle) {
         let _ = selector.set_position(PhysicalPosition::new(x, y));
     }
     let _ = selector.show();
+    keep_selector_above_history(app);
     let _ = app.emit("selector-show", ());
 }
 
@@ -813,7 +1086,8 @@ pub fn run() {
             start_drag,
             get_drag_origin,
             move_timer,
-            set_theme
+            set_theme,
+            clear_history_slot
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -827,14 +1101,14 @@ pub fn run() {
                     "state.json"
                 });
             let saved = storage::load(&path);
-            let (mut settings, checkpoint) = saved
-                .map(|s| (s.settings, Some(s.checkpoint)))
+            let (mut settings, checkpoint, history) = saved
+                .map(|s| (s.settings, Some(s.checkpoint), s.history))
                 .unwrap_or_else(|| {
                     let mut defaults = Settings::default();
                     if cfg!(debug_assertions) {
                         defaults.autostart = false;
                     }
-                    (defaults, None)
+                    (defaults, None, WorkHistory::default())
                 });
             // Debug intervals cannot be enabled in a distribution build.
             let debug = if cfg!(debug_assertions) {
@@ -862,6 +1136,12 @@ pub fn run() {
                 path,
                 snap_targets: Mutex::new(Vec::new()),
                 notification_started: Mutex::new(None),
+                history: Mutex::new(history),
+                recent_reward: Mutex::new(None),
+                history_hover: AtomicU64::new(0),
+                history_hovered: AtomicBool::new(false),
+                completion_history_until: Mutex::new(None),
+                reward_generation: AtomicU64::new(0),
             });
             // Only the small timer owns a WebView while resident. Temporary
             // windows are created on demand and destroyed after use.
@@ -871,7 +1151,7 @@ pub fn run() {
                 "timer",
                 "timer",
                 TIMER_WIDTH * scale,
-                TIMER_HEIGHT * scale,
+                timer_height(&settings) * scale,
             )?;
             place_timer(app.handle(), settings.position);
             if settings.timer_visible {
@@ -921,6 +1201,7 @@ pub fn run() {
             std::thread::spawn(move || {
                 let mut last = platform::monotonic_seconds();
                 let mut checkpoint = Instant::now();
+                let mut history_refresh = Instant::now();
                 let mut old_status = Status::Waiting;
                 loop {
                     std::thread::sleep(Duration::from_secs(1));
@@ -936,21 +1217,118 @@ pub fn run() {
                     {
                         dismiss_notification(&handle);
                     }
-                    let (due, status) = {
+                    let (due, status, charged, track) = {
                         let mut e = rt.engine.lock().unwrap();
                         let due = e.tick(delta, idle, locked);
-                        (due, e.status)
+                        (due, e.status, e.charged_secs, e.settings.history_enabled)
                     };
+                    let mut completed_slot = None;
+                    if track && charged > 0.0 {
+                        let wall = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs_f64();
+                        completed_slot = rt.history.lock().unwrap().record(wall, charged);
+                    }
                     if due {
                         notify(&handle, true);
+                        if track {
+                            // Showing the history is independent of whether a slot
+                            // happened to receive seconds in this exact tick.
+                            // Previously this guard sporadically skipped the popup.
+                            let reward_slot = {
+                                let h = rt.history.lock().unwrap();
+                                match completed_slot {
+                                    Some(slot) => h.contains_slot(slot).then_some(slot),
+                                    None => h.recent_slot(wall_seconds()),
+                                }
+                            };
+                            *rt.recent_reward.lock().unwrap() = None;
+                            let reward_id =
+                                rt.reward_generation.fetch_add(1, Ordering::Relaxed) + 1;
+                            rt.history_hover.fetch_add(1, Ordering::Relaxed);
+                            *rt.completion_history_until.lock().unwrap() =
+                                Some(Instant::now() + Duration::from_secs(10));
+                            let first_shown = show_history(&handle, true).is_ok();
+                            let later = handle.clone();
+                            std::thread::spawn(move || {
+                                let started = Instant::now();
+                                // Overlay creation can fail while another native
+                                // window is showing. Retry rather than silently
+                                // discarding the user's completion feedback.
+                                if !first_shown {
+                                    for _ in 0..4 {
+                                        std::thread::sleep(Duration::from_millis(180));
+                                        let rt = later.state::<Runtime>();
+                                        if rt.reward_generation.load(Ordering::Relaxed) != reward_id
+                                        {
+                                            return;
+                                        }
+                                        if show_history(&later, true).is_ok() {
+                                            break;
+                                        }
+                                    }
+                                }
+                                std::thread::sleep(
+                                    Duration::from_secs(2).saturating_sub(started.elapsed()),
+                                );
+                                let rt = later.state::<Runtime>();
+                                if rt.reward_generation.load(Ordering::Relaxed) != reward_id {
+                                    return;
+                                }
+                                // A second show/raise ensures that the popup is
+                                // visible above "take a break" before the bloom.
+                                let mut shown = show_history(&later, true).is_ok();
+                                for _ in 0..3 {
+                                    if shown {
+                                        break;
+                                    }
+                                    std::thread::sleep(Duration::from_millis(180));
+                                    shown = show_history(&later, true).is_ok();
+                                }
+                                if shown {
+                                    if let Some(slot) = reward_slot {
+                                        // Respect cells cleared during the 2s delay.
+                                        if rt.history.lock().unwrap().contains_slot(slot) {
+                                            *rt.recent_reward.lock().unwrap() =
+                                                Some((slot, Instant::now()));
+                                        }
+                                    }
+                                    broadcast(&later);
+                                }
+                                // Keep the popup through the full reward animation;
+                                // only auto-hide if the pointer has left it.
+                                std::thread::sleep(Duration::from_secs(8));
+                                if rt.reward_generation.load(Ordering::Relaxed) == reward_id {
+                                    *rt.completion_history_until.lock().unwrap() = None;
+                                    if !rt.history_hovered.load(Ordering::Relaxed) {
+                                        if let Some(w) = later.get_webview_window("history") {
+                                            let _ = w.hide();
+                                        }
+                                    }
+                                }
+                            });
+                        }
                         let _ = persist(&rt);
                     }
                     if status != old_status {
                         update_menu(&handle);
+                        // Full snapshots are still necessary for lifecycle transitions.
+                        broadcast(&handle);
+                        if !due && old_status == Status::Running && status != Status::Running {
+                            let _ = persist(&rt);
+                        }
                         old_status = status;
+                        history_refresh = now;
+                    } else if history_refresh.elapsed() >= Duration::from_secs(60) {
+                        // Refresh the 3/7-day heatmaps once a minute, not every tick.
+                        broadcast(&handle);
+                        history_refresh = now;
+                    } else {
+                        // The only per-second IPC while counting down: 3 scalars.
+                        broadcast_tick(&handle);
                     }
-                    broadcast(&handle);
-                    if checkpoint.elapsed() >= Duration::from_secs(15) {
+                    if checkpoint.elapsed() >= Duration::from_secs(120) {
                         if let Err(error) = persist(&rt) {
                             rt.engine.lock().unwrap().error = Some(error);
                         }
@@ -969,6 +1347,9 @@ pub fn run() {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 if window.label() == "timer" {
+                    if let Some(history) = window.app_handle().get_webview_window("history") {
+                        let _ = history.hide();
+                    }
                     let _ = window.hide();
                     let rt = window.state::<Runtime>();
                     rt.engine.lock().unwrap().settings.timer_visible = false;

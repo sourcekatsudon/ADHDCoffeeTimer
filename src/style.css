@@ -315,14 +315,16 @@ input:focus-visible {
   filter: drop-shadow(0 0 4px #f3d2c726);
 }
 .ring-fill.running {
-  transition: stroke-dashoffset 1s linear;
+  /* Discrete 1Hz update: no continuous 60fps SVG animation between seconds. */
+  transition: none;
 }
 .progress-ring .ring-aura {
   stroke: #ffdfb8;
   stroke-width: 15;
-  filter: url(#ring-bloom);
+  /* A fixed translucent aura avoids the continually re-rasterized SVG blur
+     and 10-second infinite opacity animation on WKWebView. */
+  filter: none;
   opacity: 0.32;
-  animation: ring-lamp-breathe 10s steps(40, end) infinite alternate;
 }
 .progress-ring .ring-highlight {
   stroke: #fff3dc;
@@ -331,15 +333,7 @@ input:focus-visible {
 }
 .ring-aura.running,
 .ring-highlight.running {
-  transition: stroke-dashoffset 1s linear;
-}
-@keyframes ring-lamp-breathe {
-  from {
-    opacity: 0.2;
-  }
-  to {
-    opacity: 0.62;
-  }
+  transition: none;
 }
 .ring-button:hover .ring-fill {
   stroke: #ffe4d9;
@@ -1518,4 +1512,255 @@ html:not([lang='ja']) .clock-weekday {
   .range-field {
     max-width: 100%;
   }
+}
+
+
+/* Three-day focus history. Keep the existing timer's ring, typography and colors. */
+.timer-shell { height: 542px; }
+.capsule { height: 534px; }
+.timer-controls { position: absolute; bottom: 32px; margin-top: 0; }
+.history-mini {
+  position: absolute;
+  bottom: 112px;
+  width: 146px;
+  height: 68px;
+  padding: 8px 9px;
+  border-radius: 16px;
+  border: 1px solid rgba(247,245,244,.24);
+  background: linear-gradient(135deg, rgba(224,230,244,.10), rgba(60,84,121,.14));
+  box-shadow: inset 0 1px 1px #ffffff22;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.history-mini:hover, .history-mini:focus-visible {
+  background: linear-gradient(135deg, rgba(244,228,223,.16), rgba(60,84,121,.22));
+  border-color: #f5dbd188;
+}
+.history-mini-axis {
+  display: grid;
+  grid-template-columns: 25px repeat(5, 1fr);
+  align-items: center;
+  font-size: 7px;
+  color: var(--text);
+  opacity: .84;
+  line-height: 1;
+  text-align: center;
+}
+.history-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 12px;
+}
+.history-mini-day { font-size: 8px; flex: 0 0 26px; white-space: nowrap; }
+.history-mini-cells {
+  display: grid;
+  grid-template-columns: repeat(48, minmax(0,1fr));
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+}
+.history-mini-cell {
+  height: 8px;
+  border-radius: 1.5px;
+  background: rgba(220,230,242,.19);
+}
+/* Calm focus cells: approximately half the surrounding glow of the previous build.
+   Do not alter the separate just-completed achievement animation. */
+.history-mini-cell[data-level="1"], .history-popup-cell[data-level="1"], .history-popup-legend i[data-level="1"] {
+  background: rgba(255,225,205,.52);
+  box-shadow: 0 0 2px 0 rgba(255,225,195,.24);
+}
+.history-mini-cell[data-level="2"], .history-popup-cell[data-level="2"], .history-popup-legend i[data-level="2"] {
+  background: rgba(255,230,211,.68);
+  box-shadow: 0 0 4px 1px rgba(255,213,176,.32);
+}
+.history-mini-cell[data-level="3"], .history-popup-cell[data-level="3"], .history-popup-legend i[data-level="3"] {
+  background: #ffe5d2;
+  box-shadow: 0 0 6px 1px rgba(255,215,185,.42), 0 0 10px 2px rgba(255,185,151,.16);
+}
+.history-mini-cell[data-level="4"], .history-popup-cell[data-level="4"], .history-popup-legend i[data-level="4"] {
+  background: #fff4e6;
+  box-shadow: 0 0 9px 2px rgba(255,226,201,.50), 0 0 13px 3px rgba(255,186,146,.22);
+}
+.history-popup {
+  position: relative;
+  margin: 3px;
+  width: 484px;
+  height: 186px;
+  padding: 9px 12px 6px;
+  border-radius: 18px;
+  color: var(--text);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, var(--surface-light), transparent 60%),
+    linear-gradient(145deg, var(--surface), var(--surface-depth));
+  animation: history-enter .26s cubic-bezier(.2,.72,.25,1) both;
+}
+@keyframes history-enter {
+  from { opacity: 0; transform: scale(.975) translateX(-7px); }
+  to { opacity: 1; transform: scale(1) translateX(0); }
+}
+.history-popup-heading { display: flex; align-items: flex-start; justify-content: space-between; }
+.history-popup-heading strong { font-size: 12px; font-weight: 600; letter-spacing: .015em; }
+.history-popup-heading p { font-size: 8px; opacity: .72; margin: 0; line-height: 1.15; }
+.history-popup-close { font-size: 16px; line-height: 16px; opacity: .72; padding: 0 3px; }
+.history-popup-close:hover { opacity: 1; }
+.history-popup-axis {
+  margin: 5px 2px 3px 50px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  opacity: .88;
+}
+.history-popup-axis > span:first-child { display: none; }
+.history-popup-days { display: flex; flex-direction: column; gap: 3px; }
+.history-popup-row { display: flex; align-items: center; gap: 5px; height: 13px; }
+.history-popup-day { flex: 0 0 45px; font-size: 9px; white-space: nowrap; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.history-popup-cells { flex: 1; display: grid; grid-template-columns: repeat(96, minmax(0, 1fr)); gap: 1px; min-width: 0; }
+.history-popup-cell {
+  width: 100%;
+  height: 10px;
+  padding: 0;
+  border-radius: 1.5px;
+  background: rgba(220,230,242,.16);
+  transition: background .16s, box-shadow .16s;
+  position: relative;
+}
+.history-popup-cell[data-level="0"] { cursor: default; }
+.history-popup-cell[data-level]:not([data-level="0"]):hover,
+.history-popup-cell:focus-visible {
+  outline: 1px solid #fff4dd;
+  outline-offset: 1px;
+  z-index: 2;
+}
+.history-popup-footer {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid #ffffff35;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 8px;
+  opacity: .85;
+  font-variant-numeric: tabular-nums;
+}
+.history-popup-legend { display: inline-flex; gap: 3px; }
+.history-popup-legend i { display: block; width: 7px; height: 7px; border-radius: 1px; background: rgba(220,230,242,.2); }
+.history-popup-error { font-size: 8px; color: #ffddd2; position: absolute; bottom: 1px; }
+/* Achievement bloom: a powerful warm flare around the winning cell,
+   returning exactly to that cell's normal activity intensity. */
+.history-popup-cell.just-completed {
+  z-index: 8;
+  animation: history-achievement-core 2.85s cubic-bezier(.16,.85,.25,1) both;
+}
+.history-popup-cell.just-completed::before,
+.history-popup-cell.just-completed::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(.15);
+  opacity: 0;
+}
+.history-popup-cell.just-completed::before {
+  width: 166px;
+  height: 166px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255,255,250,.98) 0%,
+    rgba(255,246,211,.96) 7%,
+    rgba(255,209,147,.80) 18%,
+    rgba(255,166,107,.46) 35%,
+    rgba(255,149,99,.18) 54%,
+    transparent 77%);
+  animation: history-achievement-halo 2.85s ease-out both;
+}
+.history-popup-cell.just-completed::after {
+  width: 142px;
+  height: 142px;
+  background:
+    linear-gradient(90deg, transparent 42%, rgba(255,244,201,.8) 49%, transparent 58%),
+    linear-gradient(0deg, transparent 42%, rgba(255,244,201,.8) 49%, transparent 58%);
+  -webkit-mask-image: radial-gradient(ellipse, black, transparent 66%);
+  mask-image: radial-gradient(ellipse, black, transparent 66%);
+  animation: history-achievement-rays 2.85s ease-out both;
+}
+@keyframes history-achievement-core {
+  0%, 100% { filter: brightness(1); }
+  14% { filter: brightness(2.2); }
+  30% { filter: brightness(4.7); }
+  46% { filter: brightness(3.25); }
+  73% { filter: brightness(1.45); }
+}
+@keyframes history-achievement-halo {
+  0%, 100% { opacity: 0; transform: translate(-50%,-50%) scale(.12); }
+  15% { opacity: .65; transform: translate(-50%,-50%) scale(.52); }
+  33% { opacity: 1; transform: translate(-50%,-50%) scale(1.02); }
+  53% { opacity: .82; transform: translate(-50%,-50%) scale(1.18); }
+  74% { opacity: .25; transform: translate(-50%,-50%) scale(1.27); }
+}
+@keyframes history-achievement-rays {
+  0%, 100% { opacity: 0; transform: translate(-50%,-50%) scale(.20) rotate(-12deg); }
+  30% { opacity: .95; transform: translate(-50%,-50%) scale(.84) rotate(0deg); }
+  54% { opacity: .7; transform: translate(-50%,-50%) scale(1.16) rotate(8deg); }
+  77% { opacity: .04; transform: translate(-50%,-50%) scale(1.3) rotate(12deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-popup, .history-popup-cell.just-completed,
+  .history-popup-cell.just-completed::before,
+  .history-popup-cell.just-completed::after { animation: none; }
+}
+/* A single settings switch restores the original compact timer layout. */
+.timer-shell.no-history { height: 474px; }
+.no-history .capsule { height: 466px; }
+.no-history .timer-controls { position: static; bottom: auto; margin-top: 25px; }
+
+/* History display switch is always near the beginning of Settings. */
+.focus-history-setting { margin-bottom: 10px; }
+.focus-history-setting .setting-row { align-items: center; }
+.focus-history-setting .setting-row > div:first-child { flex: 1; }
+.focus-history-setting small { display: block; max-width: 36em; line-height: 1.5; }
+.focus-history-choice { display: inline-flex; flex: 0 0 auto; gap: 4px; padding: 3px; border: 1px solid #ffffff35; border-radius: 11px; background: #10253c28; }
+.focus-history-choice button { min-width: 45px; padding: 8px 7px; border-radius: 8px; font-size: 11px; font-weight: 600; opacity: .7; }
+.focus-history-choice button.active { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--text); opacity: 1; }
+.focus-history-choice button:not(.active):hover { background: var(--hover); opacity: 1; }
+
+/* Opt-in per-PC synchronization. Never distract from the calm timer view. */
+.sync-setting { margin-bottom: 11px; }
+.sync-setting .setting-row > div:first-child { flex: 1; min-width: 0; }
+.sync-setting small { display: block; font-size: 10px; line-height: 1.5; color: var(--text-muted, #d9e1ecc5); margin-top: 5px; }
+.sync-state { font-size: 10px; letter-spacing: .03em; padding: 5px 9px; border-radius: 999px;
+  background: #ffffff0b; border: 1px solid #ffffff36; white-space: nowrap; }
+.sync-state.connected { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.sync-website { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.sync-website a { color: var(--accent); text-decoration: underline; font-size: 11px; }
+.sync-website .sound-preview { padding: 5px 8px; }
+.sync-connect-row { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.sync-connect-row label { flex: 0 0 83px; font-size: 10px; }
+.sync-connect-row input { flex: 1 1 155px; min-width: 100px; max-width: 220px; height: 34px;
+  background: #182c4352; border: 1px solid #e4dfd852; border-radius: 9px; padding: 7px 9px;
+  color: var(--text); letter-spacing: .04em; font-size: 12px; }
+.sync-connect-row .sound-preview { height: 34px; }
+.sync-actions { display: flex; gap: 7px; margin: 13px 0 8px; }
+.sync-setting .sync-error { color: #ffd5cc; }
+.sync-setting .sync-message { color: var(--accent); }
+
+/* macOS power-save: WKWebView's 28px live backdrop blur forces expensive
+   offscreen compositing whenever windows behind the timer repaint. The timer
+   already supplies multiple static frosted gradients, so retain the shape,
+   colors, and translucency without a live backdrop texture. Other overlays
+   (settings, notification, completion reward) keep their existing design. */
+body[data-platform='mac'][data-view='timer'] .capsule.glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

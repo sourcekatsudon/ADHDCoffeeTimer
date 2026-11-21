@@ -17,11 +17,37 @@ const observers = new Set<(s: Snapshot) => void>();
 function emitPreview() {
   observers.forEach((f) => f(cloneSnapshot(preview)));
 }
+export type TimerTick = Pick<Snapshot, 'remainingSecs' | 'status'> & { clockMs: number };
+
+export function applyTimerTick(previous: Snapshot, tick: TimerTick): Snapshot {
+  return { ...previous, ...tick };
+}
+
+/** Full history/settings snapshots are infrequent. The 1 Hz clock event only
+ * changes lightweight scalar fields, retaining the same history reference. */
 export async function subscribe(f: (s: Snapshot) => void) {
   if (native) {
-    const off = await listen<Snapshot>('state', (e) => f(e.payload));
-    f(await invoke<Snapshot>('get_state'));
-    return off;
+    let latest: Snapshot | null = null;
+    const publish = (value: Snapshot) => {
+      latest = value;
+      f(value);
+    };
+    const offState = await listen<Snapshot>('state', (e) => publish(e.payload));
+    let offTick: (() => void) | undefined;
+    try {
+      offTick = await listen<TimerTick>('timer-tick', (e) => {
+        if (!latest) return;
+        const { remainingSecs, status, clockMs } = e.payload;
+        publish(applyTimerTick(latest, { remainingSecs, status, clockMs }));
+      });
+      // get_state also supplies the existing persisted activity on startup.
+      if (!latest) publish(await invoke<Snapshot>('get_state'));
+      return () => { offTick?.(); offState(); };
+    } catch (error) {
+      offState();
+      offTick?.();
+      throw error;
+    }
   }
   f(cloneSnapshot(preview));
   observers.add(f);
@@ -52,6 +78,11 @@ export async function save(settings: Settings) {
     lastManualMinutes: changed ? null : current.lastManualMinutes,
   };
   if (changed) preview.remainingSecs = preview.durationSecs = settings.defaultMinutes * 60;
+  emitPreview();
+}
+export async function clearHistorySlot(start: number) {
+  if (native) return invoke('clear_history_slot', { start });
+  preview.history = preview.history.filter(item => item.start !== start);
   emitPreview();
 }
 export async function setTheme(theme: ThemeId) {
