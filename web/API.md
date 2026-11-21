@@ -105,6 +105,6 @@ Example response with fictional numbers:
 - Token management endpoints are **not** callable with developer bearer
   tokens. Only the website login session can issue or revoke keys.
 
-**Prerequisite:** Until Google OAuth and the private Vercel Blob store are
+**Prerequisite:** Until Google OAuth and the private Supabase PostgreSQL database are
 configured for the project (see [README.md](README.md)), issuance, storage
 and authenticated API retrieval cannot work end to end.
