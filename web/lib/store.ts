@@ -11,6 +11,11 @@ export const randomKey = (n = 32) => randomBytes(n).toString('hex');
 export const storeReady = () =>
   Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
 
+/** Supabase API keys are uninterrupted ASCII strings with no whitespace. */
+export function normalizeSupabaseSecret(raw: string): string {
+  return raw.replace(/\s+/g, '').replace(/^["']|["']$/g, '');
+}
+
 function db(): SupabaseClient {
   if (!storeReady()) throw new Error('Supabase database is not connected.');
   // Lazy initialization prevents next build from crashing before the owner
@@ -21,7 +26,7 @@ function db(): SupabaseClient {
       // API keys never contain whitespace. Pasted keys can gain embedded
       // newlines from line-wrapping; an invalid header would prevent *all*
       // pairing-code writes before Supabase receives a request.
-      process.env.SUPABASE_SECRET_KEY!.replace(/\s+/g, '').replace(/^["']|["']$/g, ''),
+      normalizeSupabaseSecret(process.env.SUPABASE_SECRET_KEY!),
       {
         auth: {
           persistSession: false,
