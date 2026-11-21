@@ -1,4 +1,4 @@
-import { listPaths, readBlob, userPrefix, type Cell, type DeviceHistory } from './store';
+import { listDocuments, userPrefix, type Cell, type DeviceHistory } from './store';
 
 export type AccountDevice = {
   id: string;
@@ -18,9 +18,8 @@ export type AccountActivity = {
 
 export async function loadAccountDevices(userKey: string): Promise<DeviceHistory[]> {
   if (!/^[a-f0-9]{64}$/.test(userKey)) throw new Error('Invalid user key');
-  const paths = (await listPaths(userPrefix(userKey)))
-    .filter(path => path.endsWith('.json')).slice(0, 64);
-  const records = await Promise.all(paths.map(path => readBlob<DeviceHistory>(path)));
+  const records = (await listDocuments<DeviceHistory>(userPrefix(userKey), 64))
+    .map(item => item.payload);
   return records.filter((record): record is DeviceHistory =>
     !!record && record.version === 1 &&
     typeof record.deviceId === 'string' && Array.isArray(record.cells) &&
