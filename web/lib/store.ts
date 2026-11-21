@@ -1,10 +1,36 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { get, list, put } from '@vercel/blob';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// Auth.js owns Google login/session validation. This database client is
+// server-side only, uses a private secret key and NEVER appears in the UI.
+let dbClient: SupabaseClient | null = null;
+const TABLE = 'focus_documents';
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 export const userKey = (googleSub: string) => hash('google-sub:' + googleSub);
 export const randomKey = (n = 32) => randomBytes(n).toString('hex');
-export const storeReady = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+export const storeReady = () =>
+  Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+
+function db(): SupabaseClient {
+  if (!storeReady()) throw new Error('Supabase database is not connected.');
+  // Lazy initialization prevents next build from crashing before the owner
+  // connects the Supabase credentials in Vercel.
+  if (!dbClient) {
+    dbClient = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      },
+    );
+  }
+  return dbClient;
+}
+
 export const userPrefix = (key: string) => 'focus/v1/users/' + key + '/devices/';
 export const devicePath = (key: string, deviceId: string) => userPrefix(key) + deviceId + '.json';
 export const pairPath = (code: string) => 'focus/v1/pair/' + hash(code) + '.json';
@@ -21,33 +47,57 @@ export type DeviceHistory = {
 export type Pair = { userKey: string; expiresAt: number; used: boolean };
 export type DeviceToken = { userKey: string; deviceId: string; expiresAt: number };
 
-export async function readBlob<T>(path: string): Promise<T | null> {
-  const res = await get(path, { access: 'private' });
-  if (!res?.stream) return null;
-  const data = await new Response(res.stream).text();
-  return JSON.parse(data) as T;
+/** Read a private JSON document, scoped by its opaque key. */
+export async function readDocument<T>(key: string): Promise<T | null> {
+  const { data, error } = await db().from(TABLE)
+    .select('payload').eq('key', key).maybeSingle();
+  if (error) throw new Error('Supabase read failed: ' + error.message);
+  return data ? (data.payload as T) : null;
 }
 
-export async function writeBlob(path: string, data: unknown): Promise<void> {
-  await put(path, JSON.stringify(data), {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    contentType: 'application/json',
-  });
+/** Atomically insert or replace one document by its key. */
+export async function writeDocument(key: string, payload: unknown): Promise<void> {
+  const { error } = await db().from(TABLE)
+    .upsert({ key, payload }, { onConflict: 'key' });
+  if (error) throw new Error('Supabase write failed: ' + error.message);
 }
 
-export async function listPaths(prefix: string): Promise<string[]> {
-  const paths: string[] = [];
-  let cursor: string | undefined;
-  for (let i = 0; i < 100; i++) {
-    const page = await list({ prefix, cursor, limit: 100 });
-    paths.push(...page.blobs.map((b) => b.pathname));
-    if (!page.hasMore || !page.cursor) break;
-    cursor = page.cursor;
+/** A single indexed query for a user's documents replaces Blob list + N reads. */
+export async function listDocuments<T>(
+  prefix: string, maxResults = 1000,
+): Promise<{ key: string; payload: T }[]> {
+  if (!/^[a-zA-Z0-9/.-]+$/.test(prefix) || maxResults < 1 || maxResults > 1000) {
+    throw new Error('Invalid document prefix or limit');
   }
-  return paths;
+  const { data, error } = await db().from(TABLE)
+    .select('key,payload')
+    .like('key', prefix + '%')
+    .order('key', { ascending: true })
+    .limit(maxResults);
+  if (error) throw new Error('Supabase list failed: ' + error.message);
+  return (data ?? []) as { key: string; payload: T }[];
+}
+
+export async function listDocumentKeys(prefix: string): Promise<string[]> {
+  return (await listDocuments(prefix)).map(({ key }) => key);
+}
+
+/**
+ * A SQL transaction locks and consumes the one-time pairing code.
+ * No two concurrent requests can redeem the same code.
+ */
+export async function redeemPairCode(
+  pairKey: string, tokenKey: string, deviceId: string, expiresAt: number,
+): Promise<string | null> {
+  const { data, error } = await db().rpc('focus_redeem_pairing', {
+    p_pair_key: pairKey,
+    p_token_key: tokenKey,
+    p_device_id: deviceId,
+    p_expires_at_ms: expiresAt,
+  });
+  if (error) throw new Error('Supabase device pairing failed: ' + error.message);
+  const owner = (data as { user_key: string }[] | null)?.[0]?.user_key;
+  return typeof owner === 'string' && /^[a-f0-9]{64}$/.test(owner) ? owner : null;
 }
 
 export const responseHeaders = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
