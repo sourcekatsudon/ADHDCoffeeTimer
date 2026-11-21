@@ -1,4 +1,4 @@
-import { randomKey, hash, listPaths, readBlob, writeBlob } from './store';
+import { randomKey, hash, listDocuments, readDocument, writeDocument } from './store';
 
 export const TOKEN_SCOPE = 'activity:read' as const;
 const TOKEN_RE = /^ftk_v1_[a-f0-9]{64}$/;
@@ -64,10 +64,10 @@ export function newDeveloperToken(name: string, userKey: string, days: number, n
 
 export async function listDeveloperTokens(userKey: string): Promise<DeveloperToken[]> {
   if (!USER_KEY_RE.test(userKey)) throw new Error('Invalid account');
-  const paths = (await listPaths(developerTokenPrefix(userKey)))
-    .filter(path => /\/[a-f0-9]{24}\.json$/.test(path))
+  const rows = (await listDocuments<DeveloperToken>(developerTokenPrefix(userKey), 1000))
+    .filter(row => /\/[a-f0-9]{24}\.json$/.test(row.key))
+    .map(row => row.payload)
     .slice(0, 50);
-  const rows = await Promise.all(paths.map(path => readBlob<DeveloperToken>(path)));
   return rows
     .filter((row): row is DeveloperToken =>
       !!row && row.version === 1 && row.userKey === userKey &&
@@ -83,30 +83,30 @@ export async function issueDeveloperToken(record: DeveloperToken) {
     version: 1, userKey: record.userKey, id: record.id,
     scope: TOKEN_SCOPE, expiresAt: record.expiresAt, revokedAt: null,
   };
-  await writeBlob(record.verifierPath, verifier);
-  await writeBlob(developerTokenPath(record.userKey, record.id), record);
+  await writeDocument(record.verifierPath, verifier);
+  await writeDocument(developerTokenPath(record.userKey, record.id), record);
 }
 
 export async function revokeDeveloperToken(userKey: string, id: string): Promise<boolean> {
   if (!USER_KEY_RE.test(userKey) || !ID_RE.test(id)) return false;
   const path = developerTokenPath(userKey, id);
-  const record = await readBlob<DeveloperToken>(path);
+  const record = await readDocument<DeveloperToken>(path);
   if (!record || record.userKey !== userKey || record.id !== id ||
       !record.verifierPath.startsWith('focus/v1/developer-verifiers/')) return false;
   if (record.revokedAt) return true;
-  const existing = await readBlob<Verifier>(record.verifierPath);
+  const existing = await readDocument<Verifier>(record.verifierPath);
   if (existing?.userKey === userKey && existing.id === id) {
     // Make the verifier unusable BEFORE updating the visible metadata.
-    await writeBlob(record.verifierPath, { ...existing, revokedAt: Date.now() });
+    await writeDocument(record.verifierPath, { ...existing, revokedAt: Date.now() });
   }
-  await writeBlob(path, { ...record, revokedAt: Date.now() });
+  await writeDocument(path, { ...record, revokedAt: Date.now() });
   return true;
 }
 
 export async function authenticateDeveloperToken(bearer: string | null) {
   const matched = bearer?.match(/^Bearer (ftk_v1_[a-f0-9]{64})$/);
   if (!matched || !TOKEN_RE.test(matched[1])) return null;
-  const verifier = await readBlob<Verifier>(verifierPathFor(matched[1]));
+  const verifier = await readDocument<Verifier>(verifierPathFor(matched[1]));
   if (!verifier || verifier.version !== 1 || verifier.scope !== TOKEN_SCOPE ||
       !USER_KEY_RE.test(verifier.userKey) || !ID_RE.test(verifier.id) ||
       !!verifier.revokedAt || verifier.expiresAt <= Date.now()) return null;
