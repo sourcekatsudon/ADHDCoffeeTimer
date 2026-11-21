@@ -12,7 +12,7 @@ const response = (body: unknown, status = 200) =>
 export async function GET() {
   const account = await currentAccount();
   if (!account) return response({ error: 'Google sign-in required.' }, 401);
-  if (!storeReady()) return response({ error: 'Private storage not connected.' }, 503);
+  if (!storeReady()) return response({ error: 'Supabase database not connected.' }, 503);
   try {
     const items = await listDeveloperTokens(userKey(account.id));
     return response({ tokens: items.map(publicToken) });
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (req.headers.get('origin') !== req.nextUrl.origin) {
     return response({ error: 'Cross-site token creation forbidden.' }, 403);
   }
-  if (!storeReady()) return response({ error: 'Private storage not connected.' }, 503);
+  if (!storeReady()) return response({ error: 'Supabase database not connected.' }, 503);
   const body = await req.json().catch(() => null);
   const name = body?.name;
   const days = body?.expiresInDays ?? 90;
