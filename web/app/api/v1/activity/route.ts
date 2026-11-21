@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   const headers = { ...responseHeaders, 'WWW-Authenticate': 'Bearer realm="Focus API"' };
   if (!storeReady()) {
-    return NextResponse.json({ error: 'Service storage is not configured.' }, { status: 503, headers });
+    return NextResponse.json({ error: 'Supabase database is not configured.' }, { status: 503, headers });
   }
   const bearer = req.headers.get('authorization');
   try {
