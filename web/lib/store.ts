@@ -75,12 +75,26 @@ export async function probeStorage(): Promise<{
   try {
     const { error, status } = await db().from(TABLE)
       .select('key', { head: true }).limit(1);
+    if (error) {
+      // Only safe status/error metadata. No credentials, account IDs or payloads.
+      const safeMessage = error.message
+        .replace(/sb_secret_[A-Za-z0-9_-]+/g, '[redacted]')
+        .replace(/eyJ[A-Za-z0-9._-]{50,}/g, '[redacted]')
+        .slice(0, 240);
+      console.error('[focus/storage] Supabase probe failed', {
+        status, code: error.code || 'NO_ERROR_CODE', message: safeMessage,
+      });
+    }
     return {
       accessible: !error,
       status: status ?? null,
-      code: error?.code ?? (error ? 'QUERY_FAILED' : null),
+      code: error?.code || (error ? 'QUERY_FAILED' : null),
     };
-  } catch {
+  } catch (error) {
+    console.error('[focus/storage] Supabase probe threw', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message.slice(0, 200) : 'unknown',
+    });
     return { accessible: false, status: null, code: 'CONNECTION_ERROR' };
   }
 }
