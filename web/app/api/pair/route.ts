@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { currentAccount } from '../../../auth';
-import { pairPath, randomKey, responseHeaders, storeReady, userKey, writeDocument } from '../../../lib/store';
+import { pairPath, randomKey, responseHeaders, storageFailureCategory, storeReady, userKey, writeDocument } from '../../../lib/store';
 
 export const runtime = 'nodejs';
 export async function POST() {
@@ -15,8 +15,9 @@ export async function POST() {
   } catch (error) {
     // The browser must not receive the user's account or Supabase secrets.
     // Keep the database error message in Vercel's server logs for diagnosis.
-    console.error('[focus/pair] Supabase write failed:',
-      error instanceof Error ? error.message.slice(0, 360) : 'unknown error');
+    console.error('[focus/pair] Supabase write failed', {
+      category: storageFailureCategory(error),
+    });
     return NextResponse.json({
       error: 'Could not create a pairing code. Please check the Supabase connection.',
     }, { status: 503, headers: responseHeaders });

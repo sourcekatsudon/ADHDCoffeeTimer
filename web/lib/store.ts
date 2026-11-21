@@ -18,7 +18,10 @@ function db(): SupabaseClient {
   if (!dbClient) {
     dbClient = createClient(
       process.env.SUPABASE_URL!.trim(),
-      process.env.SUPABASE_SECRET_KEY!.trim(),
+      // API keys never contain whitespace. Pasted keys can gain embedded
+      // newlines from line-wrapping; an invalid header would prevent *all*
+      // pairing-code writes before Supabase receives a request.
+      process.env.SUPABASE_SECRET_KEY!.replace(/\s+/g, '').replace(/^["']|["']$/g, ''),
       {
         auth: {
           persistSession: false,
@@ -76,13 +79,11 @@ export async function probeStorage(): Promise<{
     const { error, status } = await db().from(TABLE)
       .select('key', { head: true }).limit(1);
     if (error) {
-      // Only safe status/error metadata. No credentials, account IDs or payloads.
-      const safeMessage = error.message
-        .replace(/sb_secret_[A-Za-z0-9_-]+/g, '[redacted]')
-        .replace(/eyJ[A-Za-z0-9._-]{50,}/g, '[redacted]')
-        .slice(0, 240);
+      // Do not log raw PostgREST messages: malformed header errors can
+      // literally include part of a secret API key in error.message.
       console.error('[focus/storage] Supabase probe failed', {
-        status, code: error.code || 'NO_ERROR_CODE', message: safeMessage,
+        status, code: error.code || 'NO_ERROR_CODE',
+        category: storageFailureCategory(error),
       });
     }
     return {
@@ -92,11 +93,20 @@ export async function probeStorage(): Promise<{
     };
   } catch (error) {
     console.error('[focus/storage] Supabase probe threw', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message.slice(0, 200) : 'unknown',
+      category: storageFailureCategory(error),
     });
     return { accessible: false, status: null, code: 'CONNECTION_ERROR' };
   }
+}
+
+/** Safe error classification: raw error strings may contain credentials. */
+export function storageFailureCategory(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/invalid header value|headers\.set/i.test(message)) return 'INVALID_SECRET_HEADER';
+  if (/invalid api key|invalid jwt|jwt expired/i.test(message)) return 'INVALID_API_KEY';
+  if (/permission denied|row.level.security|42501/i.test(message)) return 'DATABASE_PERMISSION';
+  if (/failed to fetch|networkerror|fetch failed/i.test(message)) return 'NETWORK_ERROR';
+  return 'STORAGE_ERROR';
 }
 
 /** A single indexed query for a user's documents replaces Blob list + N reads. */
