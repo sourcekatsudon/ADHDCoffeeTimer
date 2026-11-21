@@ -12,7 +12,13 @@ export async function POST() {
   try {
     await writeDocument(pairPath(code), { userKey: userKey(account.id), expiresAt, used: false });
     return NextResponse.json({ code, expiresAt }, { headers: responseHeaders });
-  } catch {
-    return NextResponse.json({ error: 'Could not create a pairing code.' }, { status: 503, headers: responseHeaders });
+  } catch (error) {
+    // The browser must not receive the user's account or Supabase secrets.
+    // Keep the database error message in Vercel's server logs for diagnosis.
+    console.error('[focus/pair] Supabase write failed:',
+      error instanceof Error ? error.message.slice(0, 360) : 'unknown error');
+    return NextResponse.json({
+      error: 'Could not create a pairing code. Please check the Supabase connection.',
+    }, { status: 503, headers: responseHeaders });
   }
 }

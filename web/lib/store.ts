@@ -17,8 +17,8 @@ function db(): SupabaseClient {
   // connects the Supabase credentials in Vercel.
   if (!dbClient) {
     dbClient = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!,
+      process.env.SUPABASE_URL!.trim(),
+      process.env.SUPABASE_SECRET_KEY!.trim(),
       {
         auth: {
           persistSession: false,
@@ -60,6 +60,29 @@ export async function writeDocument(key: string, payload: unknown): Promise<void
   const { error } = await db().from(TABLE)
     .upsert({ key, payload }, { onConflict: 'key' });
   if (error) throw new Error('Supabase write failed: ' + error.message);
+}
+
+/**
+ * Minimal server-side connectivity probe for setup diagnostics.
+ * No table data, secrets or account identifiers are included in the result.
+ */
+export async function probeStorage(): Promise<{
+  accessible: boolean;
+  status: number | null;
+  code: string | null;
+}> {
+  if (!storeReady()) return { accessible: false, status: null, code: 'NOT_CONFIGURED' };
+  try {
+    const { error, status } = await db().from(TABLE)
+      .select('key', { head: true }).limit(1);
+    return {
+      accessible: !error,
+      status: status ?? null,
+      code: error?.code ?? (error ? 'QUERY_FAILED' : null),
+    };
+  } catch {
+    return { accessible: false, status: null, code: 'CONNECTION_ERROR' };
+  }
 }
 
 /** A single indexed query for a user's documents replaces Blob list + N reads. */
