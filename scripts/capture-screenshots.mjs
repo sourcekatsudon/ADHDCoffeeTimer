@@ -10,7 +10,7 @@ const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'docs', 'screenshots');
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
 const context = await browser.newContext({ deviceScaleFactor: 2, timezoneId: 'Asia/Tokyo', reducedMotion: 'reduce' });
 const page = await context.newPage();
 const errors = [];
@@ -19,9 +19,11 @@ const frozen = new Date('2026-11-14T10:08:00+09:00');
 await page.clock.install({ time: frozen });
 await page.clock.pauseAt(frozen);
 const cases = [
-  { name: 'themes', view: 'gallery', width: 1522, height: 620 },
-  { name: 'timer', view: 'showcase&panel=timer', width: 720, height: 620 },
-  { name: 'settings', view: 'showcase&panel=settings', width: 760, height: 1120 },
+  { name: 'themes', view: 'gallery', width: 1600, height: 700 },
+  { name: 'timer', view: 'showcase&panel=timer', width: 760, height: 700 },
+  { name: 'timer-popup', view: 'showcase&panel=timer-popup', width: 900, height: 700 },
+  { name: 'history-popup', view: 'showcase&panel=history-popup', width: 1100, height: 700 },
+  { name: 'settings', view: 'showcase&panel=settings', width: 800, height: 1650 },
   { name: 'notification', view: 'showcase&panel=notification', width: 960, height: 520 },
 ];
 try {
@@ -29,7 +31,7 @@ try {
     for (const item of cases) {
       await page.setViewportSize({ width: item.width, height: item.height });
       await page.goto(`${process.env.PREVIEW_URL ?? 'http://127.0.0.1:1421'}/?view=${item.view}&lang=${language}`);
-      await page.locator(item.name === 'settings' ? '.settings-page' : item.name === 'notification' ? '.break-card' : '.capsule').first().waitFor();
+      await page.locator(item.name === 'settings' ? '.settings-page' : item.name === 'notification' ? '.break-card' : item.name === 'history-popup' ? '.history-popup' : '.capsule').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
       const measurement = await page.evaluate(() => ({
         horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
