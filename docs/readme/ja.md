@@ -18,11 +18,11 @@ PCを使うと自動でスタート。離席すると一時停止。休憩の時
 - **Googleログイン・複数PC同期は任意**。[Webダッシュボード](https://adhd-coffee-focus.vercel.app)でログインして16文字のワンタイム連携コードを発行し、各PCの「設定 → クラウド同期」で接続。約30分ごとに自動同期し、Webでは**7日間／30日間**の履歴を確認できます。更新版PCアプリのローカル保存期間は最大32日間です。
 - 複数PCを同時利用した場合、同じ15分枠の合計は概算です。
 
-**重要：公開済みのv0.1.0インストーラーには、今回の作業履歴・クラウド同期機能は含まれません。** 最新ソースとWebには実装されていますが、新しいPC版インストーラーの公開が別途必要です。
+**v0.2.0で正式対応：** 作業履歴の自動記録・Googleログインによる任意の複数PC同期をWindows/macOS版に追加しました。v0.1.0からは新しいインストーラーを導入してください。旧版で記録していなかった稼働履歴は後から復元できません。
 
 ## ダウンロード・使い方
 
-[Windows x64](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_windows-x64-setup.exe) · [macOS Apple Silicon](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-arm64.dmg) · [macOS Intel](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-x64.dmg)
+[Windows x64](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_windows-x64-setup.exe) · [macOS Apple Silicon](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-arm64.dmg) · [macOS Intel](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-x64.dmg)
 
 Windowsはexeを実行。Macはチップに合うDMGを開き、Applicationsへドラッグしてください。Mac版は未署名またはアドホック署名で、公証されていません。ネイティブMac UIの手動検証も未実施です。Linux版は利用できません。[対応状況](../PLATFORMS.md#linux)をご確認ください。
 

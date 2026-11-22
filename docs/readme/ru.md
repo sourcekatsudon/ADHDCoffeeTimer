@@ -10,12 +10,16 @@
 
 По умолчанию он приостанавливается после 90 секунд без ввода и сбрасывается после 10 минут отсутствия. Можно выбрать 5, 10, 15, 25, 30, 60 или 90 минут, одну из семи тем, прозрачность, необязательный звук и размер S/M/L (40%/70%/100%). Настройки сохраняются после перезапуска. Интерфейс доступен на десяти языках. Приложение остаётся в системном трее или строке меню.
 
+## Новое в v0.2.0: история работы и необязательная синхронизация
+
+Приложение автоматически записывает только секунды работы таймера, исключая паузы и отсутствие за компьютером. На таймере видны последние 3 дня, во всплывающем окне — 7 дней с интервалами по 15 минут. При желании можно связать компьютеры через [Google](https://adhd-coffee-focus.vercel.app/) и просматривать 7 или 30 дней на сайте. Без аккаунта приложение работает локально; суммарные данные отправляются только после добровольной привязки устройства.
+
 ## Скачать и установить
 
-[Windows x64](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_windows-x64-setup.exe) · [macOS Apple Silicon](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-arm64.dmg) · [macOS Intel](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-x64.dmg)
+[Windows x64](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_windows-x64-setup.exe) · [macOS Apple Silicon](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-arm64.dmg) · [macOS Intel](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-x64.dmg)
 
 Windows: запустите установщик exe. Mac: откройте DMG для вашего процессора и перетащите приложение в Applications. Сборки Mac не подписаны либо имеют подпись ad hoc и не нотарифицированы Apple. Нативный интерфейс Mac ещё не проверен вручную. Linux пока недоступен; см. [статус платформ](../PLATFORMS.md#linux).
 
-Всё работает локально, без аккаунта и телеметрии. Приложение проверяет время с последнего системного ввода, а не содержание набранного текста. Это личное напоминание о перерывах, без медицинских обещаний.
+По умолчанию приложение работает локально без аккаунта и телеметрии; синхронизация с облаком необязательна. Приложение проверяет время с последнего системного ввода, а не содержание набранного текста. Это личное напоминание о перерывах, без медицинских обещаний.
 
 [Полное описание на английском](../../README.md) · [Сборка из исходников](../BUILDING.md) · [Лицензия MIT](../../LICENSE)

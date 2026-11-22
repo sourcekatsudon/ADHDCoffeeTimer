@@ -6,9 +6,9 @@ Automatically starts when you work. Pauses when you’re away. Reminds you to re
 
 | Windows | macOS | Linux |
 | :---: | :---: | :---: |
-| [![Windows x64 download](https://img.shields.io/badge/Windows-x64_download-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_windows-x64-setup.exe) | [![macOS Apple Silicon download](https://img.shields.io/badge/macOS-Apple_Silicon-333333?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-arm64.dmg)<br>[![macOS Intel download](https://img.shields.io/badge/macOS-Intel-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.1.0_macos-x64.dmg) | [![Linux unavailable](https://img.shields.io/badge/Linux-unavailable-999999?style=for-the-badge&logo=linux&logoColor=white)](docs/PLATFORMS.md#linux) |
+| [![Windows x64 download](https://img.shields.io/badge/Windows-x64_download-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_windows-x64-setup.exe) | [![macOS Apple Silicon download](https://img.shields.io/badge/macOS-Apple_Silicon-333333?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-arm64.dmg)<br>[![macOS Intel download](https://img.shields.io/badge/macOS-Intel-555555?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases/latest/download/ADHD-Coffee-Time_0.2.0_macos-x64.dmg) | [![Linux unavailable](https://img.shields.io/badge/Linux-unavailable-999999?style=for-the-badge&logo=linux&logoColor=white)](docs/PLATFORMS.md#linux) |
 
-[All releases](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases) · [Platform status and limitations](docs/PLATFORMS.md)
+[All releases](https://github.com/sourcekatsudon/ADHDCoffeeTimer/releases) · [v0.2.0 release notes](docs/releases/v0.2.0.md) · [Platform status and limitations](docs/PLATFORMS.md)
 
 English · [日本語](docs/readme/ja.md) · [简体中文](docs/readme/zh-CN.md) · [한국어](docs/readme/ko.md) · [Español](docs/readme/es.md) · [Français](docs/readme/fr.md) · [Deutsch](docs/readme/de.md) · [Português (Brasil)](docs/readme/pt-BR.md) · [Русский](docs/readme/ru.md) · [العربية](docs/readme/ar.md)
 
@@ -59,7 +59,7 @@ Use Settings to personalize the app; quit from the tray/menu bar.
 
 Local-first: no account or cloud connection is required to use the timer, and there is no telemetry. The app reads only time since the last OS input, **not keystroke content**. Settings and focus records are stored locally. Cloud sync is **opt-in** and uploads aggregated 15-minute activity records only after each PC is paired with your Google account. Disconnecting stops future uploads; previously synced data may remain. This is a reminder tool, not a medical treatment.
 
-**Desktop release note:** The current public **v0.1.0 installer downloads** predate the focus-history and Google cloud-sync features described here. Those features are present in the newer source and web dashboard; revised desktop installers must be released separately.
+**Desktop v0.2.0:** Includes the focus-history and optional Google-account sync features described above. If upgrading from v0.1.0, install the new Windows or macOS package; old work history cannot be reconstructed retrospectively.
 
 ## Build or contribute
 
