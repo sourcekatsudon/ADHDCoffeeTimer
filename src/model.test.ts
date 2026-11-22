@@ -16,6 +16,15 @@ describe('timer interactions', () => {
     expect(formatClock(new Date(2019, 4, 1)).era).toBe('令和元年');
     expect(formatClock(new Date(2019, 3, 30)).era).toBe('平成31年');
   });
+  it('reuses daily date fields while the seconds advance', () => {
+    const first = formatClock(new Date(2026, 10, 13, 11, 59, 58));
+    const next = formatClock(new Date(2026, 10, 13, 11, 59, 59));
+    expect(next.date).toBe(first.date);
+    expect(next.weekday).toBe(first.weekday);
+    expect(next.era).toBe(first.era);
+    expect(first.time).toBe('11:59:58');
+    expect(next.time).toBe('11:59:59');
+  });
   it('uses ceiling so the final second remains visible', () => {
     expect(formatTime(0.2)).toBe('00:01');
     expect(formatTime(1500)).toBe('25:00');
