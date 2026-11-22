@@ -12,7 +12,7 @@ Automatically starts when you work. Pauses when you’re away. Reminds you to re
 
 English · [日本語](docs/readme/ja.md) · [简体中文](docs/readme/zh-CN.md) · [한국어](docs/readme/ko.md) · [Español](docs/readme/es.md) · [Français](docs/readme/fr.md) · [Deutsch](docs/readme/de.md) · [Português (Brasil)](docs/readme/pt-BR.md) · [Русский](docs/readme/ru.md) · [العربية](docs/readme/ar.md)
 
-![Seven colors of the same quiet desktop timer](docs/screenshots/themes-en.png)
+![Seven colors of the same quiet desktop timer](docs/screenshots/themes-en.webp)
 
 *Real UI browser previews. Native glass effects vary by OS; these are not Mac hardware tests.*
 
@@ -33,11 +33,11 @@ I'm impatient. I bought a physical Pomodoro timer, but starting it every time fe
 
 ## Screenshots
 
-![Seven color themes, each with the three-day focus activity indicator](docs/screenshots/themes-en.png)
+![Seven color themes, each with the three-day focus activity indicator](docs/screenshots/themes-en.webp)
 
 | Timer with time preset popup | Timer with focus history popup |
 | :---: | :---: |
-| ![Timer and popup for selecting countdown presets](docs/screenshots/timer-popup-en.png) | ![Timer and seven-day activity history popup](docs/screenshots/history-popup-en.png) |
+| ![Timer and popup for selecting countdown presets](docs/screenshots/timer-popup-en.webp) | ![Timer and seven-day activity history popup](docs/screenshots/history-popup-en.webp) |
 
 | Timer | Settings | Break reminder |
 | :---: | :---: | :---: |
