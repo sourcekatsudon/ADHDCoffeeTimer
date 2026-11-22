@@ -793,6 +793,27 @@ function SettingsView({ state }: { state: Snapshot }) {
     </main>
   );
 }
+// Demonstration activity is used only for browser documentation previews.
+// Native desktop views always use the real OS-backed snapshot.
+function documentationHistory(): Snapshot['history'] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const slots: Snapshot['history'] = [];
+  for (let daysAgo = 0; daysAgo < 7; daysAgo++) {
+    const day = new Date(today);
+    day.setDate(day.getDate() - daysAgo);
+    for (let i = 0; i < 96; i++) {
+      if (i < 30 || i > 82 || (daysAgo === 0 && i > 40)) continue;
+      const variation = (i * 7 + daysAgo * 11) % 23;
+      if (variation < 6 || (i > 47 && i < 53) || (daysAgo === 3 && i > 59)) continue;
+      const at = new Date(day);
+      at.setHours(Math.floor(i / 4), (i % 4) * 15, 0, 0);
+      slots.push({ start: Math.floor(at.getTime() / 1000), seconds: 180 + variation * 29 });
+    }
+  }
+  return slots;
+}
+
 function App() {
   const snapshot = useSnapshot();
   const latestSnapshot = useRef<Snapshot | null>(null);
@@ -805,6 +826,7 @@ function App() {
     ...snapshot,
     remainingSecs: 1472,
     status: 'running' as const,
+    history: documentationHistory(),
     settings: {
       ...snapshot.settings,
       language: params.get('lang') === 'en' ? 'en' as const : 'ja' as const,
@@ -888,6 +910,10 @@ function App() {
       <main className={`release-showcase release-showcase-${panel}`}>
         {panel === 'settings' ? <SettingsView state={state} />
           : panel === 'notification' ? <BreakNotification state={state} />
+          : panel === 'timer-popup'
+            ? <><Selector state={state} /><Timer state={state} studio /></>
+          : panel === 'history-popup'
+            ? <><Timer state={state} studio /><HistoryView state={state} /></>
           : <Timer state={state} studio />}
       </main>
     );
