@@ -109,8 +109,7 @@ until overwritten/removed; adding account-level deletion is future work.
 
 Each PC keeps local history even if offline. History is uploaded only after
 the device has been explicitly paired and Focus History is enabled.
-Network failures do not destroy local history. The account dashboard merges
-one week's 15-minute cells, capping each slot at 900 seconds.
+Network failures do not destroy local history. The account dashboard merges up to 30 days of 15-minute cells, capping each slot at 900 seconds.
 Overlapping devices are approximate because only aggregated slot seconds
 are available, not second-by-second overlap data.
 
