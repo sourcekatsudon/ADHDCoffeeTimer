@@ -1,10 +1,26 @@
 name: Release installers
+
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: coffee-desktop-release-v0.2.0
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: '0.2.0'
+  RELEASE_TAG: 'v0.2.0'
+
 jobs:
   package:
+    if: github.ref == 'refs/heads/main' && github.repository == 'sourcekatsudon/ADHDCoffeeTimer'
     strategy:
       fail-fast: false
       matrix:
@@ -35,31 +51,101 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+      - name: Confirm version consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./package.json').version")" = "$RELEASE_VERSION"
+          test "$(node -p "require('./package-lock.json').version")" = "$RELEASE_VERSION"
+          test "$(node -p "require('./src-tauri/tauri.conf.json').version")" = "$RELEASE_VERSION"
+          grep -Fqx "version = \"$RELEASE_VERSION\"" src-tauri/Cargo.toml
       - run: npm ci
       - run: npm test
       - run: npm run build
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }}
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --target ${{ matrix.target }} -- -D warnings
-      - run: npm run tauri build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Build native installers
+        run: npm run tauri build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
         env:
           APPLE_SIGNING_IDENTITY: '-'
-      - name: Archive macOS application with executable permissions
-        if: runner.os == 'macOS'
-        run: ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/${{ matrix.target }}/release/bundle/macos/ADHD Coffee Time.app" "src-tauri/target/${{ matrix.target }}/release/bundle/ADHD-Coffee-Time-${{ matrix.name }}.app.zip"
-      - name: Record source and version
+      - name: Stage and verify versioned assets
         shell: bash
         run: |
-          mkdir -p build-info
-          printf '%s\n' "$GITHUB_SHA" > build-info/SOURCE-COMMIT.txt
-          node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json')).version" > build-info/VERSION.txt
+          set -euo pipefail
+          bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
+          mkdir -p release-assets
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mapfile -t files < <(find "$bundle_dir/nsis" -maxdepth 1 -type f -name '*-setup.exe')
+            test "${#files[@]}" -eq 1
+            cp "${files[0]}" "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_windows-x64-setup.exe"
+          else
+            mapfile -t files < <(find "$bundle_dir/dmg" -maxdepth 1 -type f -name '*.dmg')
+            test "${#files[@]}" -eq 1
+            test -d "$bundle_dir/macos/ADHD Coffee Time.app"
+            codesign --verify --deep --strict "$bundle_dir/macos/ADHD Coffee Time.app"
+            cp "${files[0]}" "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_${{ matrix.name }}.dmg"
+            ditto -c -k --sequesterRsrc --keepParent "$bundle_dir/macos/ADHD Coffee Time.app" "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_${{ matrix.name }}.app.zip"
+          fi
+          find release-assets -maxdepth 1 -type f -print
+          test -n "$(find release-assets -maxdepth 1 -type f -size +100k -print -quit)"
       - uses: actions/upload-artifact@v4
         with:
-          name: ADHD-Coffee-Time-${{ matrix.name }}
+          name: release-${{ matrix.name }}
           if-no-files-found: error
           retention-days: 30
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/*.app.zip
-            build-info/
+          path: release-assets/
+
+  publish:
+    needs: package
+    if: github.ref == 'refs/heads/main' && github.repository == 'sourcekatsudon/ADHDCoffeeTimer'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify asset inventory and generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 5
+          for platform in windows-x64-setup.exe macos-x64.dmg macos-arm64.dmg macos-x64.app.zip macos-arm64.app.zip; do
+            test -s "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_$platform"
+          done
+          unzip -t "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_macos-x64.app.zip" >/dev/null
+          unzip -t "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_macos-arm64.app.zip" >/dev/null
+          printf '{\n  "version": "%s",\n  "sourceCommit": "%s",\n  "buildWorkflow": "%s",\n  "unsignedWindows": true,\n  "adHocSignedMac": true\n}\n' "$RELEASE_VERSION" "$GITHUB_SHA" "$GITHUB_WORKFLOW" > release-assets/BUILD-INFO.json
+          (cd release-assets && sha256sum ADHD-Coffee-Time_* BUILD-INFO.json > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+          ls -lh release-assets
+      - name: Publish GitHub release and installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to overwrite published assets."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ADHD Coffee Time $RELEASE_TAG" \
+            --notes-file docs/releases/v0.2.0.md \
+            --latest
+      - name: Verify release asset count
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          count="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
+          test "$count" -eq 7
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease,assets --jq '{tag: .tagName, draft: .isDraft, prerelease: .isPrerelease, assets: [.assets[].name]}'
