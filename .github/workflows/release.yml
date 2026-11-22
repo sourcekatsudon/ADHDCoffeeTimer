@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: coffee-desktop-release-v0.2.0
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   RELEASE_VERSION: '0.2.0'
@@ -75,12 +75,13 @@ jobs:
           set -euo pipefail
           bundle_dir="src-tauri/target/${{ matrix.target }}/release/bundle"
           mkdir -p release-assets
+          shopt -s nullglob
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            mapfile -t files < <(find "$bundle_dir/nsis" -maxdepth 1 -type f -name '*-setup.exe')
+            files=("$bundle_dir"/nsis/*-setup.exe)
             test "${#files[@]}" -eq 1
             cp "${files[0]}" "release-assets/ADHD-Coffee-Time_${RELEASE_VERSION}_windows-x64-setup.exe"
           else
-            mapfile -t files < <(find "$bundle_dir/dmg" -maxdepth 1 -type f -name '*.dmg')
+            files=("$bundle_dir"/dmg/*.dmg)
             test "${#files[@]}" -eq 1
             test -d "$bundle_dir/macos/ADHD Coffee Time.app"
             codesign --verify --deep --strict "$bundle_dir/macos/ADHD Coffee Time.app"
