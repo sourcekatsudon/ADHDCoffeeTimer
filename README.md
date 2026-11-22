@@ -2,7 +2,7 @@
 
 **A timer for people who forget timers.**
 
-Automatically starts when you work. Pauses when you’re away. Reminds you to rest.
+Automatically starts when you work. Pauses when you’re away. Reminds you to rest. **Now with actual focus-time history and optional Google-account sync across PCs.**
 
 | Windows | macOS | Linux |
 | :---: | :---: | :---: |
@@ -22,21 +22,28 @@ I'm impatient. I bought a physical Pomodoro timer, but starting it every time fe
 
 ## What it does
 
-- Starts with PC activity. Pauses after **90 seconds** away; resets after **10 minutes** (adjustable).
-- **5, 10, 15, 25, 30, 60, 90 minute** presets and manual pause/reset.
+- **Automatic focus timer:** starts with PC activity, pauses after **90 seconds** away, and resets after **10 minutes** (adjustable).
+- **5, 10, 15, 25, 30, 60, 90 minute** presets, a timer-selection popup, and manual pause/reset.
+- **Actual focus-time tracking:** records only seconds when the timer is running, excluding paused/idle time. Shows the most recent **3 days** on the timer and a detailed **7-day** history popup with **15-minute cells**. Click a lit cell to clear it.
+- **Gentle completion reward:** finishing a timer highlights its history cell. Focus recording, display, and reward can all be disabled in Settings.
+- **Optional multi-PC sync:** sign in with Google on the [Focus dashboard](https://adhd-coffee-focus.vercel.app), pair each computer with a one-time code, and merge focus history from multiple computers. The website shows **7 or 30 days**; updated desktop software retains up to **32 days** locally.
 - Break reminders with a soft optional chime, off by default.
 - **Seven pastel themes**, opacity, **S/M/L (40%/70%/100%)**, and **10 languages**.
 - Tray/menu-bar residency, optional login startup, and saved preferences.
-- **Focus history:** a discreet three-row activity heatmap on the timer; hover to see the last **seven days** in a compact 15-minute (0–24h) grid, and click a lit cell to clear its record.
-- **Gentle completion reward:** the work-history window briefly opens with a soft glow on the completed cell whenever the timer reminds you to rest. The whole focus-history feature is **on by default** and can be turned off from Settings.
 
-Focus history is stored locally in the existing app state file, and counts **only timer running seconds**—not idle or paused time. Deleted cells remain cleared, even after restart. Disabling the feature stops new recording and hides the indicator, popup and completion animation while restoring the original widget height.
+## Screenshots
+
+![Seven color themes, each with the three-day focus activity indicator](docs/screenshots/themes-en.png)
+
+| Timer with time preset popup | Timer with focus history popup |
+| :---: | :---: |
+| ![Timer and popup for selecting countdown presets](docs/screenshots/timer-popup-en.png) | ![Timer and seven-day activity history popup](docs/screenshots/history-popup-en.png) |
 
 | Timer | Settings | Break reminder |
 | :---: | :---: | :---: |
 | ![Timer](docs/screenshots/timer-en.png) | ![Settings](docs/screenshots/settings-en.png) | ![Break reminder](docs/screenshots/notification-en.png) |
 
-*Browser previews; native glass and window appearance may differ.*
+*Screenshots are browser previews rendered from the real application UI; focus-history cells contain illustrative data. Native glass and window appearance can vary by OS.*
 
 ## Install
 
@@ -50,53 +57,23 @@ Use Settings to personalize the app; quit from the tray/menu bar.
 
 ## Your work stays yours
 
-Local only: no accounts, telemetry or cloud. Reads input age, never keystroke content. Settings stay on your computer. A reminder tool, not a medical treatment.
+Local-first: no account or cloud connection is required to use the timer, and there is no telemetry. The app reads only time since the last OS input, **not keystroke content**. Settings and focus records are stored locally. Cloud sync is **opt-in** and uploads aggregated 15-minute activity records only after each PC is paired with your Google account. Disconnecting stops future uploads; previously synced data may remain. This is a reminder tool, not a medical treatment.
+
+**Desktop release note:** The current public **v0.1.0 installer downloads** predate the focus-history and Google cloud-sync features described here. Those features are present in the newer source and web dashboard; revised desktop installers must be released separately.
 
 ## Build or contribute
 
 [Build from source](docs/BUILDING.md) · [Report a bug](https://github.com/sourcekatsudon/ADHDCoffeeTimer/issues) · [Platform status](docs/PLATFORMS.md) · [MIT License](LICENSE) · [Third-party notices](THIRD-PARTY-NOTICES.md)
 
-## Multiple-PC focus history (opt in)
+## Connect multiple PCs (opt in)
 
-The native app now includes **Settings → Cloud sync**. Existing local activity
-stays local until you connect the PC. To join your Google account:
+1. Open the [Focus dashboard](https://adhd-coffee-focus.vercel.app) and sign in with Google.
+2. Get a **single-use 16-character pairing code**, valid for 10 minutes.
+3. On each PC, open **Settings → Cloud sync** and connect using a fresh pairing code.
+4. Use **Sync now** or let the PC automatically sync about every **30 minutes**. The website combines paired-device activity into **7-day or 30-day** history.
 
-1. Open [ADHD Coffee Time Focus](https://adhd-coffee-focus.vercel.app) and sign in with Google.
-2. Select **Get pairing code** and copy the 16-character code (one use; 10-minute validity).
-3. On **each PC**, open **Settings → Cloud sync**, paste the code and select **Connect**.
-4. The app uploads only its local activity cells, at most once per hour automatically;
-   use **Sync now** for a manual refresh. In the website, the account's devices are
-   merged into a seven-day 15-minute activity heatmap.
+Local focus history remains available offline. When multiple PCs are used at the same time, aggregated 15-minute bins are approximate. Turning off focus history also pauses uploads. See the [backend and privacy documentation](web/README.md) and [developer API](web/API.md).
 
-A separate pairing code is required for each computer. The web dashboard merges
-per-device seconds in each 15-minute cell, capped at 900 seconds (this is an
-approximation if two PCs were running simultaneously). The local 3-day / expanded
-7-day display remains independent of the account-level website. Disabling focus
-history on the device also pauses uploads, while disconnecting stops uploading
-from that PC. Do not share pairing codes or local device tokens.
+## Low-power design
 
-The backend requires a Google OAuth web application and a private Vercel Blob
-store. See [web/README.md](web/README.md) for setup and access controls.
-
-## Low-power timer rendering (macOS)
-
-The timer's native engine still samples OS input age and advances remaining time
-once per second, but **only a three-field `timer-tick` event is emitted at 1 Hz**.
-The WebView no longer receives the full 7-day activity snapshot per second;
-activity data refreshes every 60 seconds and when status/settings change.
-
-The timer ring no longer has an infinite animation or continuously interpolated
-SVG blur. The Mac timer capsule uses its existing static translucent gradients
-rather than a live 28px backdrop blur, avoiding repeated WKWebView compositing.
-
-Calendar/era formatting is cached for the current date, the native clock shares
-the timer's 1Hz update, and the 3-day heatmap uses React.memo to avoid remounting
-144 decorative cells every second. The engine prunes activity data about once a
-minute and checkpoints a running timer every 2 minutes (also on transitions and
-completion). Cloud sync starts no background timer on an unpaired PC, and paired
-PCs upload on a 30-minute cadence.
-
-**Performance target:** reduce M2's observed ~6% CPU to <=0.6% during a stable
-visible countdown. This is a target; verify with Activity Monitor on the actual
-M2 Mac (same desktop background and monitor). Automated CI tests validate
-functionality and platform builds but cannot assert a CPU percentage.
+The native timer advances in the OS-backed engine, emits a small 1 Hz timer tick, and refreshes history less frequently. The timer ring avoids continuous animation. CPU use of **0.6% on M2** is an engineering target, **not a verified benchmark**.
