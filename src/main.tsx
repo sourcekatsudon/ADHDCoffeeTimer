@@ -14,7 +14,9 @@ import {
   type Snapshot,
   timerDimensions,
   type TimerSize,
+  visibleActivityIssue,
 } from './model';
+import { ActivityIssueAlert } from './activity-issue';
 import { MiniHistory, HistoryView } from './history';
 import { SyncSettings, connectedPc, syncNow } from './sync';
 import './style.css';
@@ -338,13 +340,11 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
           </time>
           <span
             className="timer-status"
-            title={
-              state.error
-                ? localizeError(state.error, state.settings.language)
-                : state.status === 'unavailable' && state.activityIssue
-                  ? localizeError(state.activityIssue, state.settings.language)
-                  : t(state.status)
-            }
+            title={(() => {
+              if (state.error) return localizeError(state.error, state.settings.language);
+              const issue = visibleActivityIssue(state);
+              return issue ? localizeError(issue, state.settings.language) : t(state.status);
+            })()}
           >
             {state.error ? t('checkSettings') : t(state.status)}
           </span>
@@ -576,11 +576,12 @@ function SettingsView({ state }: { state: Snapshot }) {
           {localizeError(state.error, s.language)}
         </p>
       )}
-      {state.status === 'unavailable' && (
-        <p className="form-error" role="alert">
-          {localizeError(state.activityIssue ?? 'errorActivityUnavailable', s.language)}
-        </p>
-      )}
+      <ActivityIssueAlert
+        status={state.status}
+        activityIssue={state.activityIssue}
+        autoDetect={s.autoDetect}
+        language={s.language}
+      />
       <form onSubmit={(e) => e.preventDefault()}>
         <section className="setting-group focus-history-setting">
           <div className="setting-row">

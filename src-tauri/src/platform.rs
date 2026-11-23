@@ -129,10 +129,11 @@ mod tests {
 
         assert_eq!(sanitize_session_id(Some("2")), "2");
         assert_eq!(sanitize_session_id(Some("c1_user-1.0")), "c1_user-1.0");
-        assert_eq!(sanitize_session_id(Some("--property=foo")), "self");
-        assert_eq!(sanitize_session_id(Some("1; id")), "self");
-        assert_eq!(sanitize_session_id(Some("")), "self");
-        assert_eq!(sanitize_session_id(None), "self");
+        assert_eq!(sanitize_session_id(Some("--property=foo")), "auto");
+        assert_eq!(sanitize_session_id(Some("1; id")), "auto");
+        assert_eq!(sanitize_session_id(Some("   ")), "auto");
+        assert_eq!(sanitize_session_id(Some("")), "auto");
+        assert_eq!(sanitize_session_id(None), "auto");
     }
 
     #[test]
@@ -140,18 +141,255 @@ mod tests {
         const EMPTY: &[&str] = &[];
         const QUIET: &[&str] = &["-q"];
         assert_eq!(
-            select_linux_audio_player(|_| true),
-            Some(("/usr/bin/pw-play", EMPTY))
+            linux_audio_candidates(|_| true, None),
+            vec![
+                ("/usr/bin/pw-play".to_string(), EMPTY),
+                ("/usr/bin/paplay".to_string(), EMPTY),
+                ("/usr/bin/aplay".to_string(), QUIET),
+            ]
         );
         assert_eq!(
-            select_linux_audio_player(|p| p != "/usr/bin/pw-play"),
-            Some(("/usr/bin/paplay", EMPTY))
+            linux_audio_candidates(|p| p == "/usr/bin/paplay" || p == "/usr/bin/aplay", None),
+            vec![
+                ("/usr/bin/paplay".to_string(), EMPTY),
+                ("/usr/bin/aplay".to_string(), QUIET),
+            ]
         );
         assert_eq!(
-            select_linux_audio_player(|p| p == "/usr/bin/aplay"),
-            Some(("/usr/bin/aplay", QUIET))
+            linux_audio_candidates(|p| p == "/custom/bin/aplay", Some("/custom/bin:/other")),
+            vec![("/custom/bin/aplay".to_string(), QUIET)]
         );
-        assert_eq!(select_linux_audio_player(|_| false), None);
+        assert!(linux_audio_candidates(|_| false, Some("/nonexistent")).is_empty());
+    }
+
+    #[test]
+    fn linux_audio_fallback_chain_recovers_from_nonzero_exit_and_timeout() {
+        const EMPTY: &[&str] = &[];
+        const QUIET: &[&str] = &["-q"];
+        let candidates = vec![
+            ("/usr/bin/pw-play".to_string(), EMPTY),
+            ("/usr/bin/paplay".to_string(), EMPTY),
+            ("/usr/bin/aplay".to_string(), QUIET),
+        ];
+
+        // First exits nonzero -> falls back to second -> stops without calling third.
+        let mut called = Vec::new();
+        let ok = run_audio_fallback_chain(&candidates, |bin, _| {
+            called.push(bin.to_string());
+            if bin == "/usr/bin/pw-play" {
+                CommandOutcome::Exited {
+                    success: false,
+                    stdout: String::new(),
+                    stderr: "pipewire down".into(),
+                }
+            } else {
+                CommandOutcome::Exited {
+                    success: true,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                }
+            }
+        });
+        assert!(ok);
+        assert_eq!(called, vec!["/usr/bin/pw-play", "/usr/bin/paplay"]);
+
+        // First times out, second fails to spawn, third succeeds.
+        let mut called = Vec::new();
+        let ok = run_audio_fallback_chain(&candidates, |bin, _| {
+            called.push(bin.to_string());
+            match bin {
+                "/usr/bin/pw-play" => CommandOutcome::TimedOut,
+                "/usr/bin/paplay" => CommandOutcome::SpawnFailed("enoent".into()),
+                _ => CommandOutcome::Exited {
+                    success: true,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                },
+            }
+        });
+        assert!(ok);
+        assert_eq!(
+            called,
+            vec!["/usr/bin/pw-play", "/usr/bin/paplay", "/usr/bin/aplay"]
+        );
+
+        // All candidates exit nonzero -> returns false after trying all.
+        let mut called = Vec::new();
+        let ok = run_audio_fallback_chain(&candidates, |bin, _| {
+            called.push(bin.to_string());
+            CommandOutcome::Exited {
+                success: false,
+                stdout: String::new(),
+                stderr: "failed".into(),
+            }
+        });
+        assert!(!ok);
+        assert_eq!(called.len(), 3);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_subprocess_times_out_drains_large_output_and_chains_real_fallback() {
+        use std::time::{Duration, Instant};
+
+        // Hung process is killed and reaped promptly within timeout bound.
+        let start = Instant::now();
+        let outcome = run_command_with_timeout("/bin/sleep", &["10"], Duration::from_millis(60));
+        assert_eq!(outcome, CommandOutcome::TimedOut);
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "timed-out child blocked for {:?}",
+            start.elapsed()
+        );
+
+        // >64 KiB stdout does not pipe-deadlock and capture is bounded.
+        let outcome = run_command_with_timeout(
+            "/bin/sh",
+            &[
+                "-c",
+                "dd if=/dev/zero bs=1024 count=128 2>/dev/null | tr '\\0' 'x'",
+            ],
+            Duration::from_secs(3),
+        );
+        match outcome {
+            CommandOutcome::Exited {
+                success, stdout, ..
+            } => {
+                assert!(success);
+                assert_eq!(stdout.len(), MAX_CAPTURE_BYTES);
+            }
+            other => panic!("expected successful bounded output, got {other:?}"),
+        }
+
+        // Real child fallback: nonzero exit (/usr/bin/false) falls back to success (/usr/bin/true).
+        const EMPTY: &[&str] = &[];
+        let chain = vec![
+            ("/usr/bin/false".to_string(), EMPTY),
+            ("/usr/bin/true".to_string(), EMPTY),
+        ];
+        let mut attempts = 0usize;
+        let ok = run_audio_fallback_chain(&chain, |bin, args| {
+            attempts += 1;
+            run_command_with_timeout(bin, args, Duration::from_secs(1))
+        });
+        assert!(ok);
+        assert_eq!(attempts, 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exited_probe_descendant_cannot_keep_capture_pipes_open_past_deadline() {
+        use std::time::{Duration, Instant};
+        let start = Instant::now();
+        let result = run_command_with_timeout(
+            "/bin/sh",
+            &["-c", "sleep 2 & exit 0"],
+            Duration::from_millis(60),
+        );
+        assert!(matches!(
+            result,
+            CommandOutcome::Exited { success: true, .. }
+        ));
+        assert!(
+            start.elapsed() < Duration::from_secs(1),
+            "descendant held capture open: {:?}",
+            start.elapsed()
+        );
+    }
+
+    #[test]
+    fn background_sampler_never_stalls_caller_bounds_refreshes_and_expires_stale_cache() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc, Condvar, Mutex,
+        };
+        use std::time::{Duration, Instant};
+
+        // Gate lets the test control exactly when each background probe completes.
+        let gate = Arc::new((Mutex::new((0usize, 0usize)), Condvar::new()));
+        let probe_calls = Arc::new(AtomicUsize::new(0));
+        let gate_worker = Arc::clone(&gate);
+        let calls_worker = Arc::clone(&probe_calls);
+
+        let sampler = BackgroundSampler::new(
+            move || {
+                let n = calls_worker.fetch_add(1, Ordering::SeqCst) + 1;
+                let (lock, cvar) = &*gate_worker;
+                let mut state = lock.lock().unwrap();
+                state.0 = n;
+                cvar.notify_all();
+                while state.1 < n {
+                    state = cvar.wait(state).unwrap();
+                }
+                ActivitySample {
+                    idle_secs: Some(n as f64),
+                    locked: true,
+                    issue: None,
+                }
+            },
+            Duration::from_millis(40),
+            Duration::from_millis(120),
+        );
+
+        // Wait until first background probe is in flight, then hammer sample() while probe is blocked.
+        {
+            let (lock, cvar) = &*gate;
+            let mut state = lock.lock().unwrap();
+            while state.0 < 1 {
+                state = cvar.wait(state).unwrap();
+            }
+        }
+        let started = Instant::now();
+        for _ in 0..10 {
+            let s = sampler.sample();
+            assert_eq!(s.idle_secs, None);
+            assert_eq!(s.issue, Some("errorActivityUnavailable"));
+        }
+        assert!(
+            started.elapsed() < Duration::from_millis(100),
+            "sample() stalled caller for {:?}",
+            started.elapsed()
+        );
+        // Only ONE background probe job may be in flight despite 10 rapid calls.
+        assert_eq!(probe_calls.load(Ordering::SeqCst), 1);
+
+        // Release probe #1 and wait for cached fresh sample to become visible.
+        {
+            let (lock, cvar) = &*gate;
+            lock.lock().unwrap().1 = 1;
+            cvar.notify_all();
+        }
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut fresh = sampler.sample();
+        while fresh.idle_secs.is_none() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+            fresh = sampler.sample();
+        }
+        assert_eq!(fresh.idle_secs, Some(1.0));
+        assert_eq!(fresh.issue, None);
+
+        // Wait past refresh_interval so probe #2 starts and blocks, then wait past max_age.
+        std::thread::sleep(Duration::from_millis(50));
+        let still_fresh = sampler.sample();
+        assert_eq!(still_fresh.idle_secs, Some(1.0));
+        std::thread::sleep(Duration::from_millis(130));
+        // Cached sample is now stale while probe #2 is still blocked -> must expire to Unavailable, never stall.
+        let expired_start = Instant::now();
+        let expired = sampler.sample();
+        assert!(expired_start.elapsed() < Duration::from_millis(50));
+        assert_eq!(expired.idle_secs, None);
+        assert!(
+            expired.locked,
+            "stale locked observation must not become an unlock"
+        );
+        assert_eq!(expired.issue, Some("errorActivityUnavailable"));
+
+        // Unblock worker before dropping sampler so worker exits cleanly.
+        {
+            let (lock, cvar) = &*gate;
+            lock.lock().unwrap().1 = usize::MAX;
+            cvar.notify_all();
+        }
     }
 }
 
@@ -413,7 +651,7 @@ fn sanitize_session_id(raw: Option<&str>) -> &str {
         {
             id
         }
-        _ => "self",
+        _ => "auto",
     }
 }
 
@@ -433,64 +671,347 @@ fn classify_probe_stderr(stderr: &str) -> &'static str {
 }
 
 #[cfg(any(target_os = "linux", test))]
-const LINUX_AUDIO_PLAYERS: [(&str, &[&str]); 3] = [
-    ("/usr/bin/pw-play", &[]),
-    ("/usr/bin/paplay", &[]),
-    ("/usr/bin/aplay", &["-q"]),
+const MAX_CAPTURE_BYTES: usize = 16 * 1024;
+
+#[cfg(any(target_os = "linux", test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CommandOutcome {
+    Exited {
+        success: bool,
+        stdout: String,
+        stderr: String,
+    },
+    TimedOut,
+    SpawnFailed(String),
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn drain_bounded<R: std::io::Read>(mut reader: R, limit: usize) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut buf = [0u8; 1024];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                if out.len() < limit {
+                    let take = (limit - out.len()).min(n);
+                    out.extend_from_slice(&buf[..take]);
+                }
+            }
+        }
+    }
+    out
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn run_command_with_timeout(
+    program: &str,
+    args: &[&str],
+    timeout: std::time::Duration,
+) -> CommandOutcome {
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // Isolate this probe and its descendants from the application process group.
+        command.process_group(0);
+    }
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(err) => return CommandOutcome::SpawnFailed(err.to_string()),
+    };
+
+    // Drain stdout and stderr concurrently to avoid pipe deadlocks.
+    let stdout_handle = child
+        .stdout
+        .take()
+        .map(|r| std::thread::spawn(move || drain_bounded(r, MAX_CAPTURE_BYTES)));
+    let stderr_handle = child
+        .stderr
+        .take()
+        .map(|r| std::thread::spawn(move || drain_bounded(r, MAX_CAPTURE_BYTES)));
+
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) => {
+                let now = Instant::now();
+                if now >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    break None;
+                }
+                let remaining = deadline.saturating_duration_since(now);
+                std::thread::sleep(remaining.min(Duration::from_millis(10)));
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+
+    // A successful parent may leave descendants holding its pipes open. Clear
+    // only this dedicated group before joining drainers, including after timeout.
+    #[cfg(unix)]
+    unsafe {
+        extern "C" {
+            fn kill(pid: i32, sig: i32) -> i32;
+        }
+        let _ = kill(-(child.id() as i32), 9); // SIGKILL, dedicated probe process group.
+    }
+
+    match status {
+        Some(exit) => {
+            let stdout = stdout_handle
+                .and_then(|h| h.join().ok())
+                .map(|b| String::from_utf8_lossy(&b).into_owned())
+                .unwrap_or_default();
+            let stderr = stderr_handle
+                .and_then(|h| h.join().ok())
+                .map(|b| String::from_utf8_lossy(&b).into_owned())
+                .unwrap_or_default();
+            CommandOutcome::Exited {
+                success: exit.success(),
+                stdout,
+                stderr,
+            }
+        }
+        None => CommandOutcome::TimedOut,
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+const LINUX_AUDIO_SPECS: [(&str, &str, &[&str]); 3] = [
+    ("/usr/bin/pw-play", "pw-play", &[]),
+    ("/usr/bin/paplay", "paplay", &[]),
+    ("/usr/bin/aplay", "aplay", &["-q"]),
 ];
 
 #[cfg(any(target_os = "linux", test))]
-fn select_linux_audio_player<F>(exists: F) -> Option<(&'static str, &'static [&'static str])>
+fn linux_audio_candidates<F>(
+    exists: F,
+    path_var: Option<&str>,
+) -> Vec<(String, &'static [&'static str])>
 where
     F: Fn(&str) -> bool,
 {
-    LINUX_AUDIO_PLAYERS
-        .into_iter()
-        .find(|(path, _)| exists(path))
+    let path_dirs: Vec<&str> = path_var
+        .map(|v| v.split(':').filter(|d| !d.is_empty()).collect())
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for (abs, bare, args) in LINUX_AUDIO_SPECS {
+        if exists(abs) {
+            out.push((abs.to_string(), args));
+        } else if let Some(found) = path_dirs
+            .iter()
+            .map(|dir| format!("{dir}/{bare}"))
+            .find(|candidate| exists(candidate))
+        {
+            out.push((found, args));
+        }
+    }
+    out
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn run_audio_fallback_chain<F>(candidates: &[(String, &[&str])], mut run: F) -> bool
+where
+    F: FnMut(&str, &[&str]) -> CommandOutcome,
+{
+    for (bin, args) in candidates {
+        match run(bin, args) {
+            CommandOutcome::Exited { success: true, .. } => return true,
+            CommandOutcome::Exited { success: false, .. }
+            | CommandOutcome::TimedOut
+            | CommandOutcome::SpawnFailed(_) => continue,
+        }
+    }
+    false
+}
+
+#[cfg(any(target_os = "linux", test))]
+struct SamplerState {
+    latest: Option<(ActivitySample, std::time::Instant)>,
+    refresh_requested: bool,
+    in_flight: bool,
+    shutdown: bool,
+}
+
+#[cfg(any(target_os = "linux", test))]
+struct BackgroundSampler {
+    shared: std::sync::Arc<(std::sync::Mutex<SamplerState>, std::sync::Condvar)>,
+    refresh_interval: std::time::Duration,
+    max_age: std::time::Duration,
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl BackgroundSampler {
+    fn new<F>(
+        mut probe: F,
+        refresh_interval: std::time::Duration,
+        max_age: std::time::Duration,
+    ) -> Self
+    where
+        F: FnMut() -> ActivitySample + Send + 'static,
+    {
+        use std::sync::{Arc, Condvar, Mutex};
+        use std::time::Instant;
+
+        let shared = Arc::new((
+            Mutex::new(SamplerState {
+                latest: None,
+                refresh_requested: true,
+                in_flight: false,
+                shutdown: false,
+            }),
+            Condvar::new(),
+        ));
+        let worker = Arc::clone(&shared);
+        std::thread::spawn(move || {
+            let (lock, cvar) = &*worker;
+            loop {
+                {
+                    let Ok(mut state) = lock.lock() else {
+                        return;
+                    };
+                    while !state.refresh_requested && !state.shutdown {
+                        state = match cvar.wait(state) {
+                            Ok(guard) => guard,
+                            Err(_) => return,
+                        };
+                    }
+                    if state.shutdown {
+                        return;
+                    }
+                    state.refresh_requested = false;
+                    state.in_flight = true;
+                }
+                let sample = probe();
+                let Ok(mut state) = lock.lock() else {
+                    return;
+                };
+                state.latest = Some((sample, Instant::now()));
+                state.in_flight = false;
+            }
+        });
+        Self {
+            shared,
+            refresh_interval,
+            max_age,
+        }
+    }
+
+    fn sample(&self) -> ActivitySample {
+        use std::time::Instant;
+
+        let (lock, cvar) = &*self.shared;
+        let Ok(mut state) = lock.lock() else {
+            return ActivitySample {
+                idle_secs: None,
+                locked: false,
+                issue: Some("errorActivityUnavailable"),
+            };
+        };
+        let now = Instant::now();
+        let needs_refresh = !state.in_flight
+            && state
+                .latest
+                .is_none_or(|(_, at)| now.saturating_duration_since(at) >= self.refresh_interval);
+        if needs_refresh {
+            state.refresh_requested = true;
+            cvar.notify_one();
+        }
+        match state.latest {
+            Some((sample, updated_at))
+                if now.saturating_duration_since(updated_at) <= self.max_age =>
+            {
+                sample
+            }
+            Some((stale, _)) => ActivitySample {
+                idle_secs: None,
+                locked: stale.locked,
+                issue: Some(stale.issue.unwrap_or("errorActivityUnavailable")),
+            },
+            None => ActivitySample {
+                idle_secs: None,
+                locked: false,
+                issue: Some("errorActivityUnavailable"),
+            },
+        }
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+impl Drop for BackgroundSampler {
+    fn drop(&mut self) {
+        let (lock, cvar) = &*self.shared;
+        if let Ok(mut state) = lock.lock() {
+            state.shutdown = true;
+            cvar.notify_one();
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn play_linux_sound(resource_path: &std::path::Path) -> Result<(), String> {
-    const BARE_AUDIO_PLAYERS: [(&str, &[&str]); 3] =
-        [("pw-play", &[]), ("paplay", &[]), ("aplay", &["-q"])];
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    const AUDIO_TIMEOUT: Duration = Duration::from_secs(10);
+    static AUDIO_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+    struct ClearOnDrop(&'static AtomicBool);
+    impl Drop for ClearOnDrop {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::Release);
+        }
+    }
+
     if !resource_path.is_file() {
         return Err("errorSoundUnavailable".into());
     }
-    let spawn_and_reap = |bin: &str, args: &[&str]| -> bool {
-        if let Ok(mut child) = std::process::Command::new(bin)
-            .args(args)
-            .arg(resource_path)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .spawn()
-        {
-            std::thread::spawn(move || {
-                let _ = child.wait();
-            });
-            true
-        } else {
-            false
-        }
-    };
-    if select_linux_audio_player(|p| std::path::Path::new(p).is_file())
-        .is_some_and(|(bin, args)| spawn_and_reap(bin, args))
+    let path_var = std::env::var("PATH").ok();
+    let candidates =
+        linux_audio_candidates(|p| std::path::Path::new(p).is_file(), path_var.as_deref());
+    if candidates.is_empty() {
+        return Err("errorSoundUnavailable".into());
+    }
+    // Bound concurrent playback threads while still reporting accepted dispatch.
+    if AUDIO_IN_FLIGHT
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
     {
         return Ok(());
     }
-    for (bin, args) in BARE_AUDIO_PLAYERS {
-        if spawn_and_reap(bin, args) {
-            return Ok(());
-        }
-    }
-    Err("errorSoundUnavailable".into())
+    let audio_file = resource_path.to_string_lossy().into_owned();
+    std::thread::spawn(move || {
+        let _guard = ClearOnDrop(&AUDIO_IN_FLIGHT);
+        let _ = run_audio_fallback_chain(&candidates, |bin, args| {
+            let mut full_args: Vec<&str> = Vec::with_capacity(args.len() + 1);
+            full_args.extend_from_slice(args);
+            full_args.push(&audio_file);
+            run_command_with_timeout(bin, &full_args, AUDIO_TIMEOUT)
+        });
+    });
+    Ok(())
 }
 
 #[cfg(target_os = "linux")]
 mod linux_x11 {
     use std::ffi::{c_char, c_int, c_ulong, c_void};
     use std::ptr;
-    use std::sync::{Mutex, OnceLock};
+    use std::sync::OnceLock;
 
     const RTLD_LAZY: c_int = 1;
 
@@ -532,18 +1053,9 @@ mod linux_x11 {
     }
 
     // SAFETY: Function pointers loaded from process-lifetime shared libraries are
-    // immutable and safe to invoke across threads when Display* access is serialized.
+    // immutable; X11Sampler itself is owned exclusively by the single sampler thread.
     unsafe impl Send for X11Api {}
     unsafe impl Sync for X11Api {}
-
-    struct X11Connection {
-        display: *mut c_void,
-        info: *mut XScreenSaverInfo,
-    }
-
-    // SAFETY: Access to X11Connection is strictly serialized inside a Mutex and
-    // uses a dedicated Display* not shared with GTK/GDK.
-    unsafe impl Send for X11Connection {}
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum X11IdleError {
@@ -603,105 +1115,128 @@ mod linux_x11 {
         .as_ref()
     }
 
-    /// Reads only the X11 MIT-SCREEN-SAVER idle duration in seconds.
-    /// No keycodes, cursor positions, or input hooks are installed.
-    pub fn idle_seconds() -> Result<f64, X11IdleError> {
-        let Some(api) = load_api() else {
-            return Err(X11IdleError::LibraryUnavailable);
-        };
-        static CONN: OnceLock<Mutex<X11Connection>> = OnceLock::new();
-        let lock = CONN.get_or_init(|| {
-            Mutex::new(X11Connection {
+    /// Dedicated X11 connection used exclusively on the single background sampler thread.
+    pub struct X11Sampler {
+        display: *mut c_void,
+        info: *mut XScreenSaverInfo,
+    }
+
+    // SAFETY: Moved once at initialization to the single background sampler thread;
+    // never shared concurrently across threads and never shares GTK/GDK's Display*.
+    unsafe impl Send for X11Sampler {}
+
+    impl X11Sampler {
+        pub fn new() -> Self {
+            Self {
                 display: ptr::null_mut(),
                 info: ptr::null_mut(),
-            })
-        });
-        let Ok(mut conn) = lock.lock() else {
-            return Err(X11IdleError::QueryFailed);
-        };
-        unsafe {
-            if conn.display.is_null() {
-                let display = (api.open_display)(ptr::null());
-                if display.is_null() {
-                    return Err(X11IdleError::DisplayOpenFailed);
+            }
+        }
+
+        fn reset(&mut self, api: &X11Api) {
+            unsafe {
+                if !self.info.is_null() {
+                    let _ = (api.x_free)(self.info.cast());
+                    self.info = ptr::null_mut();
                 }
-                let mut event_base: c_int = 0;
-                let mut error_base: c_int = 0;
-                if (api.query_extension)(display, &mut event_base, &mut error_base) == 0 {
-                    let _ = (api.close_display)(display);
-                    return Err(X11IdleError::ExtensionUnavailable);
+                if !self.display.is_null() {
+                    let _ = (api.close_display)(self.display);
+                    self.display = ptr::null_mut();
                 }
-                let info = (api.alloc_info)();
-                if info.is_null() {
-                    let _ = (api.close_display)(display);
+            }
+        }
+
+        /// Reads only the X11 MIT-SCREEN-SAVER idle duration in seconds.
+        /// No keycodes, cursor positions, or input hooks are installed.
+        pub fn idle_seconds(&mut self) -> Result<f64, X11IdleError> {
+            let Some(api) = load_api() else {
+                return Err(X11IdleError::LibraryUnavailable);
+            };
+            unsafe {
+                if self.display.is_null() {
+                    let display = (api.open_display)(ptr::null());
+                    if display.is_null() {
+                        return Err(X11IdleError::DisplayOpenFailed);
+                    }
+                    let mut event_base: c_int = 0;
+                    let mut error_base: c_int = 0;
+                    if (api.query_extension)(display, &mut event_base, &mut error_base) == 0 {
+                        let _ = (api.close_display)(display);
+                        return Err(X11IdleError::ExtensionUnavailable);
+                    }
+                    let info = (api.alloc_info)();
+                    if info.is_null() {
+                        let _ = (api.close_display)(display);
+                        return Err(X11IdleError::QueryFailed);
+                    }
+                    self.display = display;
+                    self.info = info;
+                }
+                let root = (api.default_root_window)(self.display);
+                if (api.query_info)(self.display, root, self.info) == 0 {
+                    self.reset(api);
                     return Err(X11IdleError::QueryFailed);
                 }
-                conn.display = display;
-                conn.info = info;
+                let idle_ms = (*self.info).idle;
+                Ok(idle_ms as f64 / 1000.0)
             }
-            let root = (api.default_root_window)(conn.display);
-            if (api.query_info)(conn.display, root, conn.info) == 0 {
-                let _ = (api.x_free)(conn.info.cast());
-                let _ = (api.close_display)(conn.display);
-                conn.info = ptr::null_mut();
-                conn.display = ptr::null_mut();
-                return Err(X11IdleError::QueryFailed);
+        }
+    }
+
+    impl Drop for X11Sampler {
+        fn drop(&mut self) {
+            if let Some(api) = load_api() {
+                self.reset(api);
             }
-            let idle_ms = (*conn.info).idle;
-            Ok(idle_ms as f64 / 1000.0)
         }
     }
 }
 
 #[cfg(target_os = "linux")]
+const LINUX_PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1200);
+
+#[cfg(target_os = "linux")]
 fn run_linux_probe(program: &str, args: &[&str]) -> Result<String, String> {
-    let output = std::process::Command::new(program)
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .output()
-        .map_err(|e| e.to_string())?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).into_owned())
+    match run_command_with_timeout(program, args, LINUX_PROBE_TIMEOUT) {
+        CommandOutcome::Exited {
+            success: true,
+            stdout,
+            ..
+        } => Ok(stdout),
+        CommandOutcome::Exited {
+            success: false,
+            stderr,
+            ..
+        } => Err(stderr),
+        CommandOutcome::TimedOut => Err("probe timed out".into()),
+        CommandOutcome::SpawnFailed(err) => Err(err),
     }
 }
 
 #[cfg(target_os = "linux")]
-fn linux_screen_locked() -> bool {
-    use std::sync::{Mutex, OnceLock};
-    use std::time::{Duration, Instant};
+struct LinuxLockCache {
+    last_checked: Option<std::time::Instant>,
+    locked: bool,
+}
 
-    // Query lock status at most every 5 seconds, matching macOS LOCK_CACHE.
-    static LOCK_CACHE: OnceLock<Mutex<(Instant, bool)>> = OnceLock::new();
-    let cache =
-        LOCK_CACHE.get_or_init(|| Mutex::new((Instant::now() - Duration::from_secs(6), false)));
-    let Ok(mut cached) = cache.lock() else {
-        return false;
-    };
-    if cached.0.elapsed() < Duration::from_secs(5) {
-        return cached.1;
+#[cfg(target_os = "linux")]
+impl LinuxLockCache {
+    fn new() -> Self {
+        Self {
+            last_checked: None,
+            locked: false,
+        }
     }
 
-    let locked = run_linux_probe(
-        "gdbus",
-        &[
-            "call",
-            "--session",
-            "--timeout",
-            "1",
-            "--dest",
-            "org.gnome.ScreenSaver",
-            "--object-path",
-            "/org/gnome/ScreenSaver",
-            "--method",
-            "org.gnome.ScreenSaver.GetActive",
-        ],
-    )
-    .ok()
-    .and_then(|out| parse_gdbus_bool(&out))
-    .or_else(|| {
-        run_linux_probe(
+    fn is_locked(&mut self) -> bool {
+        use std::time::{Duration, Instant};
+        if self
+            .last_checked
+            .is_some_and(|at| at.elapsed() < Duration::from_secs(5))
+        {
+            return self.locked;
+        }
+        let locked = run_linux_probe(
             "gdbus",
             &[
                 "call",
@@ -709,31 +1244,50 @@ fn linux_screen_locked() -> bool {
                 "--timeout",
                 "1",
                 "--dest",
-                "org.freedesktop.ScreenSaver",
+                "org.gnome.ScreenSaver",
                 "--object-path",
-                "/org/freedesktop/ScreenSaver",
+                "/org/gnome/ScreenSaver",
                 "--method",
-                "org.freedesktop.ScreenSaver.GetActive",
+                "org.gnome.ScreenSaver.GetActive",
             ],
         )
         .ok()
         .and_then(|out| parse_gdbus_bool(&out))
-    })
-    .or_else(|| {
-        let session_env = std::env::var("XDG_SESSION_ID").ok();
-        let session_id = sanitize_session_id(session_env.as_deref());
-        run_linux_probe(
-            "loginctl",
-            &["show-session", session_id, "-p", "LockedHint", "--value"],
-        )
-        .ok()
-        .and_then(|out| parse_loginctl_locked(&out))
-    })
-    .unwrap_or(false);
+        .or_else(|| {
+            run_linux_probe(
+                "gdbus",
+                &[
+                    "call",
+                    "--session",
+                    "--timeout",
+                    "1",
+                    "--dest",
+                    "org.freedesktop.ScreenSaver",
+                    "--object-path",
+                    "/org/freedesktop/ScreenSaver",
+                    "--method",
+                    "org.freedesktop.ScreenSaver.GetActive",
+                ],
+            )
+            .ok()
+            .and_then(|out| parse_gdbus_bool(&out))
+        })
+        .or_else(|| {
+            let session_env = std::env::var("XDG_SESSION_ID").ok();
+            let session_id = sanitize_session_id(session_env.as_deref());
+            run_linux_probe(
+                "loginctl",
+                &["show-session", session_id, "-p", "LockedHint", "--value"],
+            )
+            .ok()
+            .and_then(|out| parse_loginctl_locked(&out))
+        })
+        .unwrap_or(false);
 
-    cached.0 = Instant::now();
-    cached.1 = locked;
-    locked
+        self.last_checked = Some(Instant::now());
+        self.locked = locked;
+        locked
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -759,10 +1313,10 @@ fn gnome_mutter_idle_secs() -> Result<f64, &'static str> {
 }
 
 #[cfg(target_os = "linux")]
-/// Samples OS idle age on supported Linux X11 sessions (MIT-SCREEN-SAVER, with
-/// GNOME Mutter IdleMonitor fallback on X11) and screen lock state.
-/// Wayland and headless sessions report unavailable rather than faking idle.
-pub fn sample() -> ActivitySample {
+fn probe_linux_activity(
+    x11: &mut linux_x11::X11Sampler,
+    lock_cache: &mut LinuxLockCache,
+) -> ActivitySample {
     let session_type = std::env::var("XDG_SESSION_TYPE").ok();
     let display = std::env::var("DISPLAY").ok();
     let wayland_display = std::env::var("WAYLAND_DISPLAY").ok();
@@ -774,7 +1328,7 @@ pub fn sample() -> ActivitySample {
     ) {
         LinuxSession::Wayland => ActivitySample {
             idle_secs: None,
-            locked: linux_screen_locked(),
+            locked: lock_cache.is_locked(),
             issue: Some("errorActivityWayland"),
         },
         LinuxSession::Headless => ActivitySample {
@@ -783,8 +1337,8 @@ pub fn sample() -> ActivitySample {
             issue: Some("errorActivityX11"),
         },
         LinuxSession::X11 => {
-            let locked = linux_screen_locked();
-            match linux_x11::idle_seconds() {
+            let locked = lock_cache.is_locked();
+            match x11.idle_seconds() {
                 Ok(idle) if idle.is_finite() && idle >= 0.0 => ActivitySample {
                     idle_secs: Some(idle),
                     locked,
@@ -823,6 +1377,30 @@ pub fn sample() -> ActivitySample {
             }
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+/// Returns the latest fresh sample from a single bounded background sampler
+/// thread so the 1Hz tick loop never blocks on subprocesses or X11/D-Bus I/O.
+pub fn sample() -> ActivitySample {
+    use std::sync::OnceLock;
+    use std::time::Duration;
+
+    const REFRESH_INTERVAL: Duration = Duration::from_millis(800);
+    const MAX_SAMPLE_AGE: Duration = Duration::from_secs(3);
+
+    static SAMPLER: OnceLock<BackgroundSampler> = OnceLock::new();
+    SAMPLER
+        .get_or_init(|| {
+            let mut x11 = linux_x11::X11Sampler::new();
+            let mut lock_cache = LinuxLockCache::new();
+            BackgroundSampler::new(
+                move || probe_linux_activity(&mut x11, &mut lock_cache),
+                REFRESH_INTERVAL,
+                MAX_SAMPLE_AGE,
+            )
+        })
+        .sample()
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]

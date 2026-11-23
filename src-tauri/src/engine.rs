@@ -208,7 +208,7 @@ impl Engine {
             self.status = Status::Paused;
         } else {
             self.manual_paused = false;
-            self.manual_running = true;
+            self.manual_running = !self.settings.auto_detect;
             self.awaiting_input = false;
             self.status = Status::Running;
         }
@@ -221,14 +221,13 @@ impl Engine {
             self.awaiting_input = true;
             self.status = Status::Waiting;
         } else if self.settings.auto_detect && !settings.auto_detect {
+            self.manual_running = false;
             self.activity_issue = None;
-            if self.status == Status::Unavailable {
-                self.status = if self.manual_paused {
-                    Status::Paused
-                } else {
-                    Status::Waiting
-                };
-            }
+            self.status = if self.manual_paused {
+                Status::Paused
+            } else {
+                Status::Waiting
+            };
         }
         self.settings = settings;
         if changed {
@@ -865,5 +864,112 @@ mod tests {
             assert_eq!(e.remaining, 1499.0);
             assert_eq!(e.charged_secs, 0.0);
         }
+    }
+
+    #[test]
+    fn auto_to_manual_clears_stale_toggle_after_unavailable_and_idle_reset() {
+        // Case A: toggle() while auto mode is Unavailable, then switch to manual mode.
+        let mut e = engine();
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Unavailable);
+        e.toggle();
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Unavailable);
+
+        let mut manual = e.settings.clone();
+        manual.auto_detect = false;
+        e.update(manual);
+        assert_eq!(e.status, Status::Waiting);
+        assert_eq!(e.activity_issue, None);
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Waiting);
+        assert_eq!(e.remaining, 1500.0);
+        assert_eq!(e.charged_secs, 0.0);
+
+        // Only a NEW explicit Start in manual mode advances time (even with idle=None).
+        e.toggle();
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Running);
+        assert_eq!(e.remaining, 1499.0);
+        assert_eq!(e.charged_secs, 1.0);
+        // Locked/suspend still not charged.
+        assert!(!e.tick_with_issue(1.0, None, true, Some("errorActivityWayland")));
+        assert_eq!(e.remaining, 1499.0);
+        assert_eq!(e.charged_secs, 0.0);
+        assert!(!e.tick_with_issue(20.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.remaining, 1499.0);
+        assert_eq!(e.charged_secs, 0.0);
+
+        // Case B: prior toggle() in auto mode, followed by long-idle reset, then switch to manual.
+        let mut e = engine();
+        e.toggle();
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert_eq!(e.remaining, 1499.0);
+        assert!(!e.tick(1.0, Some(600.0), false));
+        assert_eq!(e.status, Status::Waiting);
+        assert_eq!(e.remaining, 1500.0);
+
+        let mut manual = e.settings.clone();
+        manual.auto_detect = false;
+        e.update(manual);
+        assert_eq!(e.status, Status::Waiting);
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert_eq!(e.status, Status::Waiting);
+        assert_eq!(e.remaining, 1500.0);
+        assert_eq!(e.charged_secs, 0.0);
+    }
+
+    #[test]
+    fn auto_running_and_paused_normalize_cleanly_on_manual_transition_and_reenable() {
+        // Case A: auto-started Running -> manual mode normalizes immediately to Waiting.
+        let mut e = engine();
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert_eq!(e.status, Status::Running);
+        assert_eq!(e.remaining, 1499.0);
+
+        let mut manual = e.settings.clone();
+        manual.auto_detect = false;
+        e.update(manual);
+        assert_eq!(e.status, Status::Waiting);
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert_eq!(e.status, Status::Waiting);
+        assert_eq!(e.remaining, 1499.0);
+        assert_eq!(e.charged_secs, 0.0);
+
+        // Case B: restored paused checkpoint with unavailable sample preserves Paused + issue,
+        // keeps Paused when switching to manual (clearing issue), and clears pause on re-enable.
+        let mut e = Engine::new(
+            Settings::default(),
+            Some(Checkpoint {
+                remaining: 900.0,
+                manual_paused: true,
+                completed: 1,
+            }),
+            None,
+        );
+        assert_eq!(e.status, Status::Paused);
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Paused);
+        assert_eq!(e.activity_issue.as_deref(), Some("errorActivityWayland"));
+
+        let mut manual = e.settings.clone();
+        manual.auto_detect = false;
+        e.update(manual);
+        assert_eq!(e.status, Status::Paused);
+        assert!(e.manual_paused);
+        assert_eq!(e.activity_issue, None);
+        assert!(!e.tick_with_issue(1.0, None, false, Some("errorActivityWayland")));
+        assert_eq!(e.status, Status::Paused);
+        assert_eq!(e.remaining, 900.0);
+        assert_eq!(e.charged_secs, 0.0);
+
+        let mut auto_again = e.settings.clone();
+        auto_again.auto_detect = true;
+        e.update(auto_again);
+        assert!(!e.manual_paused);
+        assert_eq!(e.status, Status::Waiting);
+        assert!(!e.tick(1.0, Some(0.0), false));
+        assert_eq!(e.status, Status::Running);
     }
 }

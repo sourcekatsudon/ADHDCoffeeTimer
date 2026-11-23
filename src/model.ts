@@ -109,6 +109,14 @@ export function formatClock(date: Date, language: Language = 'ja') {
   };
 }
 
+export function visibleActivityIssue(
+  state: Pick<Snapshot, 'status' | 'activityIssue'> & { settings: Pick<Settings, 'autoDetect'> },
+): string | null {
+  if (!state.settings.autoDetect) return null;
+  if (state.activityIssue) return state.activityIssue;
+  return state.status === 'unavailable' ? 'errorActivityUnavailable' : null;
+}
+
 export function nextPreset(current: number, direction: number): number {
   const index = PRESETS.indexOf(current as (typeof PRESETS)[number]);
   return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, index + Math.sign(direction)))];
