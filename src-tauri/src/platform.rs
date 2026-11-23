@@ -360,22 +360,23 @@ mod tests {
             cvar.notify_all();
         }
         let deadline = Instant::now() + Duration::from_secs(1);
-        let mut fresh = sampler.sample();
-        while fresh.idle_secs.is_none() && Instant::now() < deadline {
+        let updated_at = loop {
+            if let Some((_, at)) = sampler.shared.0.lock().unwrap().latest {
+                break at;
+            }
+            assert!(Instant::now() < deadline, "first probe did not complete");
             std::thread::sleep(Duration::from_millis(5));
-            fresh = sampler.sample();
-        }
+        };
+        // Advance the sampling clock explicitly: host scheduling delays must not
+        // change whether 50ms and 130ms observations straddle the 120ms expiry.
+        let fresh = sampler.sample_at(updated_at);
         assert_eq!(fresh.idle_secs, Some(1.0));
         assert_eq!(fresh.issue, None);
-
-        // Wait past refresh_interval so probe #2 starts and blocks, then wait past max_age.
-        std::thread::sleep(Duration::from_millis(50));
-        let still_fresh = sampler.sample();
+        let still_fresh = sampler.sample_at(updated_at + Duration::from_millis(50));
         assert_eq!(still_fresh.idle_secs, Some(1.0));
-        std::thread::sleep(Duration::from_millis(130));
-        // Cached sample is now stale while probe #2 is still blocked -> must expire to Unavailable, never stall.
+        // The second probe is blocked or queued; expiry must never wait for it.
         let expired_start = Instant::now();
-        let expired = sampler.sample();
+        let expired = sampler.sample_at(updated_at + Duration::from_millis(130));
         assert!(expired_start.elapsed() < Duration::from_millis(50));
         assert_eq!(expired.idle_secs, None);
         assert!(
@@ -913,8 +914,10 @@ impl BackgroundSampler {
     }
 
     fn sample(&self) -> ActivitySample {
-        use std::time::Instant;
+        self.sample_at(std::time::Instant::now())
+    }
 
+    fn sample_at(&self, now: std::time::Instant) -> ActivitySample {
         let (lock, cvar) = &*self.shared;
         let Ok(mut state) = lock.lock() else {
             return ActivitySample {
@@ -923,7 +926,6 @@ impl BackgroundSampler {
                 issue: Some("errorActivityUnavailable"),
             };
         };
-        let now = Instant::now();
         let needs_refresh = !state.in_flight
             && state
                 .latest
@@ -1282,7 +1284,7 @@ impl LinuxLockCache {
             .ok()
             .and_then(|out| parse_loginctl_locked(&out))
         })
-        .unwrap_or(false);
+        .unwrap_or(self.locked);
 
         self.last_checked = Some(Instant::now());
         self.locked = locked;
