@@ -1,6 +1,6 @@
 [package]
 name = "ambient-pomodoro"
-version = "0.2.0"
+version = "0.2.1"
 description = "A quiet, automatic desktop focus timer"
 authors = ["sourcekatsudon"]
 edition = "2021"

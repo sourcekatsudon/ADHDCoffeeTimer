@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { anglePreset, formatClock, formatTime, nextPreset, initial } from './model';
+import {
+  anglePreset,
+  formatClock,
+  formatTime,
+  nextPreset,
+  initial,
+  visibleActivityIssue,
+} from './model';
 describe('timer interactions', () => {
   it('keeps Japanese and the original large size for existing users', () => {
     expect(initial.settings).toMatchObject({ language: 'ja', timerSize: 'L' });
@@ -40,5 +47,35 @@ describe('timer interactions', () => {
     expect(anglePreset(0, -1)).toBe(5);
     expect(anglePreset(0, 1)).toBe(25);
     expect(anglePreset(-1, 0)).toBe(60);
+  });
+  it('surfaces activityIssue whenever autoDetect is enabled, including paused checkpoints, and hides in manual mode', () => {
+    expect(
+      visibleActivityIssue({
+        status: 'paused',
+        activityIssue: 'errorActivityWayland',
+        settings: { autoDetect: true },
+      }),
+    ).toBe('errorActivityWayland');
+    expect(
+      visibleActivityIssue({
+        status: 'unavailable',
+        activityIssue: null,
+        settings: { autoDetect: true },
+      }),
+    ).toBe('errorActivityUnavailable');
+    expect(
+      visibleActivityIssue({
+        status: 'paused',
+        activityIssue: 'errorActivityWayland',
+        settings: { autoDetect: false },
+      }),
+    ).toBeNull();
+    expect(
+      visibleActivityIssue({
+        status: 'unavailable',
+        activityIssue: 'errorActivityWayland',
+        settings: { autoDetect: false },
+      }),
+    ).toBeNull();
   });
 });

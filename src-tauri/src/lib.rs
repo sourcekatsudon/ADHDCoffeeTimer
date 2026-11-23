@@ -330,8 +330,7 @@ fn perform_action(app: tauri::AppHandle, kind: String) -> Result<(), String> {
             return Ok(());
         }
         "preview-sound" => {
-            play_chime(&app);
-            return Ok(());
+            return play_chime(&app);
         }
         "preview-notification" => {
             notify(&app, false);
@@ -942,7 +941,7 @@ fn show_selector(app: &tauri::AppHandle) {
 
 fn notify(app: &tauri::AppHandle, sound: bool) {
     if sound && app.state::<Runtime>().engine.lock().unwrap().settings.sound {
-        play_chime(app);
+        let _ = play_chime(app);
     }
     if let Some(w) = app.get_webview_window("notification").or_else(|| {
         overlay(
@@ -974,10 +973,12 @@ fn notify(app: &tauri::AppHandle, sound: bool) {
     }
 }
 
-fn play_chime(app: &tauri::AppHandle) {
-    if let Ok(dir) = app.path().resource_dir() {
-        platform::play_sound(&dir.join("sounds/seatbelt.wav"));
-    }
+fn play_chime(app: &tauri::AppHandle) -> Result<(), String> {
+    let dir = app
+        .path()
+        .resource_dir()
+        .map_err(|_| "errorSoundUnavailable".to_string())?;
+    platform::play_sound(&dir.join("sounds/seatbelt.wav"))
 }
 
 fn dismiss_notification(app: &tauri::AppHandle) {
@@ -1203,13 +1204,15 @@ pub fn run() {
                 let mut checkpoint = Instant::now();
                 let mut history_refresh = Instant::now();
                 let mut old_status = Status::Waiting;
+                let mut old_issue: Option<String> = None;
                 loop {
                     std::thread::sleep(Duration::from_secs(1));
                     let now = Instant::now();
                     let clock = platform::monotonic_seconds();
                     let delta = (clock - last).max(0.);
                     last = clock;
-                    let (idle, locked) = platform::sample();
+                    let sample = platform::sample();
+                    let (idle, locked, issue) = (sample.idle_secs, sample.locked, sample.issue);
                     let rt = handle.state::<Runtime>();
                     let notified = *rt.notification_started.lock().unwrap();
                     if notified.is_some_and(|t| t.elapsed() >= Duration::from_secs(5))
@@ -1217,10 +1220,16 @@ pub fn run() {
                     {
                         dismiss_notification(&handle);
                     }
-                    let (due, status, charged, track) = {
+                    let (due, status, charged, track, activity_issue) = {
                         let mut e = rt.engine.lock().unwrap();
-                        let due = e.tick(delta, idle, locked);
-                        (due, e.status, e.charged_secs, e.settings.history_enabled)
+                        let due = e.tick_with_issue(delta, idle, locked, issue);
+                        (
+                            due,
+                            e.status,
+                            e.charged_secs,
+                            e.settings.history_enabled,
+                            e.activity_issue.clone(),
+                        )
                     };
                     let mut completed_slot = None;
                     if track && charged > 0.0 {
@@ -1311,7 +1320,7 @@ pub fn run() {
                         }
                         let _ = persist(&rt);
                     }
-                    if status != old_status {
+                    if status != old_status || activity_issue != old_issue {
                         update_menu(&handle);
                         // Full snapshots are still necessary for lifecycle transitions.
                         broadcast(&handle);
@@ -1319,6 +1328,7 @@ pub fn run() {
                             let _ = persist(&rt);
                         }
                         old_status = status;
+                        old_issue = activity_issue;
                         history_refresh = now;
                     } else if history_refresh.elapsed() >= Duration::from_secs(60) {
                         // Refresh the 3/7-day heatmaps once a minute, not every tick.

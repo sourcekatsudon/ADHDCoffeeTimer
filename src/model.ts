@@ -36,6 +36,7 @@ export type Snapshot = {
   clockMs?: number;
   debug: boolean;
   error: string | null;
+  activityIssue?: string | null;
 };
 export const initial: Snapshot = {
   settings: {
@@ -63,6 +64,7 @@ export const initial: Snapshot = {
   rewardSlot: null,
   debug: false,
   error: null,
+  activityIssue: null,
 };
 export function formatTime(seconds: number) {
   const s = Math.max(0, Math.ceil(seconds));
@@ -105,6 +107,14 @@ export function formatClock(date: Date, language: Language = 'ja') {
     ...parts,
     time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
   };
+}
+
+export function visibleActivityIssue(
+  state: Pick<Snapshot, 'status' | 'activityIssue'> & { settings: Pick<Settings, 'autoDetect'> },
+): string | null {
+  if (!state.settings.autoDetect) return null;
+  if (state.activityIssue) return state.activityIssue;
+  return state.status === 'unavailable' ? 'errorActivityUnavailable' : null;
 }
 
 export function nextPreset(current: number, direction: number): number {

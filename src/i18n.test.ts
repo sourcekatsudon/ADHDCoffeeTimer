@@ -21,6 +21,11 @@ it('translates timer, settings, notification and saved error codes immediately',
   expect(localizeError('errorSize', 'en')).toBe('Invalid timer size.');
   expect(localizeError('errorSize', 'ja')).toBe('タイマーのサイズが不正です。');
   expect(localizeError('errorAutostart: OS error', 'de')).toContain('OS error');
+  expect(localizeError('errorActivityWayland', 'en')).toContain('Wayland');
+  expect(localizeError('errorActivityX11', 'en')).toContain('X11');
+  expect(localizeError('errorActivityPermission', 'en')).toContain('permission');
+  expect(localizeError('errorActivityUnavailable', 'ja')).toContain('手動モード');
+  expect(localizeError('errorSoundUnavailable', 'en')).toContain('pw-play');
 });
 it('formats weekdays and calendars for the selected language', () => {
   const date = new Date(2026, 10, 14, 9, 4, 7);

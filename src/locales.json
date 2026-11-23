@@ -995,6 +995,66 @@
       "ko": "창 이동을 시작할 수 없습니다.",
       "ru": "Не удалось начать перемещение окна.",
       "ar": "تعذّر بدء نقل النافذة."
+    },
+    "errorActivityWayland": {
+      "ja": "Waylandセッションでは自動操作検知に未対応です。X11セッションを使うか、自動検知をOFFにして手動モードでご利用ください。",
+      "en": "Automatic activity detection is not supported on Wayland yet. Use an X11 session, or turn off automatic detection for manual timer mode.",
+      "es": "La detección automática de actividad aún no es compatible con Wayland. Usa una sesión X11 o desactiva la detección automática para usar el modo manual.",
+      "fr": "La détection automatique d’activité n’est pas encore prise en charge sur Wayland. Utilisez une session X11 ou désactivez-la pour le mode manuel.",
+      "de": "Automatische Aktivitätserkennung wird unter Wayland noch nicht unterstützt. Nutze eine X11-Sitzung oder schalte sie für den manuellen Modus aus.",
+      "pt": "A detecção automática de atividade ainda não é compatível com Wayland. Use uma sessão X11 ou desative-a para usar o modo manual.",
+      "zh": "Wayland 会话暂不支持自动操作检测。请改用 X11 会话，或关闭自动检测以使用手动计时模式。",
+      "ko": "Wayland 세션에서는 활동 자동 감지를 아직 지원하지 않습니다. X11 세션을 사용하거나 자동 감지를 꺼서 수동 모드로 사용하세요.",
+      "ru": "Автоматическое определение активности в Wayland пока не поддерживается. Используйте сеанс X11 или отключите автоопределение для ручного режима.",
+      "ar": "اكتشاف النشاط تلقائيًا غير مدعوم بعد على Wayland. استخدم جلسة X11 أو أوقف الاكتشاف التلقائي للعمل بالوضع اليدوي."
+    },
+    "errorActivityX11": {
+      "ja": "X11の無操作時間を取得できません（MIT-SCREEN-SAVER / libxss1 または GNOME IdleMonitor が必要です）。自動検知をOFFにすると手動モードで使えます。",
+      "en": "Cannot read X11 idle time (requires an X11 session with MIT-SCREEN-SAVER / libxss1 or GNOME IdleMonitor). Turn off automatic detection to use manual mode.",
+      "es": "No se puede leer la inactividad de X11 (requiere una sesión X11 con MIT-SCREEN-SAVER / libxss1 o GNOME IdleMonitor). Desactiva la detección automática para el modo manual.",
+      "fr": "Impossible de lire l’inactivité X11 (nécessite une session X11 avec MIT-SCREEN-SAVER / libxss1 ou GNOME IdleMonitor). Désactivez la détection automatique pour le mode manuel.",
+      "de": "X11-Leerlaufzeit kann nicht gelesen werden (erfordert eine X11-Sitzung mit MIT-SCREEN-SAVER / libxss1 oder GNOME IdleMonitor). Für den manuellen Modus die automatische Erkennung ausschalten.",
+      "pt": "Não é possível ler o tempo ocioso do X11 (requer sessão X11 com MIT-SCREEN-SAVER / libxss1 ou GNOME IdleMonitor). Desative a detecção automática para o modo manual.",
+      "zh": "无法读取 X11 空闲时间（需要带 MIT-SCREEN-SAVER / libxss1 或 GNOME IdleMonitor 的 X11 会话）。关闭自动检测即可使用手动模式。",
+      "ko": "X11 유휴 시간을 읽을 수 없습니다(MIT-SCREEN-SAVER / libxss1 또는 GNOME IdleMonitor가 있는 X11 세션 필요). 수동 모드를 사용하려면 자동 감지를 끄세요.",
+      "ru": "Не удалось получить время бездействия X11 (требуется сеанс X11 с MIT-SCREEN-SAVER / libxss1 или GNOME IdleMonitor). Отключите автоопределение для ручного режима.",
+      "ar": "تعذّرت قراءة وقت الخمول في X11 (يتطلب جلسة X11 مع MIT-SCREEN-SAVER / libxss1 أو GNOME IdleMonitor). أوقف الاكتشاف التلقائي لاستخدام الوضع اليدوي."
+    },
+    "errorActivityPermission": {
+      "ja": "操作検知の権限が拒否されました。権限設定を確認するか、自動検知をOFFにして手動モードでご利用ください。",
+      "en": "Activity detection permission was denied by the desktop session. Check permissions or turn off automatic detection to use manual mode.",
+      "es": "La sesión de escritorio denegó el permiso de detección de actividad. Revisa los permisos o desactiva la detección automática para el modo manual.",
+      "fr": "La session de bureau a refusé l’autorisation de détection d’activité. Vérifiez les autorisations ou désactivez la détection automatique pour le mode manuel.",
+      "de": "Die Desktop-Sitzung hat die Berechtigung zur Aktivitätserkennung verweigert. Berechtigungen prüfen oder automatische Erkennung für den manuellen Modus ausschalten.",
+      "pt": "A sessão da área de trabalho negou permissão para detectar atividade. Verifique as permissões ou desative a detecção automática para o modo manual.",
+      "zh": "桌面会话拒绝了活动检测权限。请检查权限设置，或关闭自动检测以使用手动模式。",
+      "ko": "데스크톱 세션이 활동 감지 권한을 거부했습니다. 권한을 확인하거나 자동 감지를 꺼서 수동 모드로 사용하세요.",
+      "ru": "Сеанс рабочего стола отказал в доступе к определению активности. Проверьте права или отключите автоопределение для ручного режима.",
+      "ar": "رفضت جلسة سطح المكتب إذن اكتشاف النشاط. تحقق من الأذونات أو أوقف الاكتشاف التلقائي لاستخدام الوضع اليدوي."
+    },
+    "errorActivityUnavailable": {
+      "ja": "この環境では自動操作検知を利用できません。自動検知をOFFにすると手動モードで使えます。",
+      "en": "Automatic activity detection is unavailable on this desktop session. Turn off automatic detection to use manual mode.",
+      "es": "La detección automática de actividad no está disponible en esta sesión. Desactívala para usar el modo manual.",
+      "fr": "La détection automatique d’activité n’est pas disponible dans cette session. Désactivez-la pour utiliser le mode manuel.",
+      "de": "Automatische Aktivitätserkennung ist in dieser Sitzung nicht verfügbar. Schalte sie aus, um den manuellen Modus zu nutzen.",
+      "pt": "A detecção automática de atividade não está disponível nesta sessão. Desative-a para usar o modo manual.",
+      "zh": "当前桌面会话不支持自动操作检测。关闭自动检测即可使用手动模式。",
+      "ko": "이 데스크톱 세션에서는 활동 자동 감지를 사용할 수 없습니다. 수동 모드를 사용하려면 자동 감지를 끄세요.",
+      "ru": "Автоматическое определение активности недоступно в этом сеансе. Отключите его, чтобы использовать ручной режим.",
+      "ar": "اكتشاف النشاط تلقائيًا غير متاح في هذه الجلسة. أوقف الاكتشاف التلقائي لاستخدام الوضع اليدوي."
+    },
+    "errorSoundUnavailable": {
+      "ja": "通知音を再生できる音声プレーヤー（Linuxでは pw-play / paplay / aplay）が見つかりません。",
+      "en": "No supported audio player (pw-play, paplay, or aplay on Linux) was found for the chime.",
+      "es": "No se encontró un reproductor de audio compatible (pw-play, paplay o aplay en Linux) para el sonido.",
+      "fr": "Aucun lecteur audio pris en charge (pw-play, paplay ou aplay sous Linux) n’a été trouvé pour le carillon.",
+      "de": "Kein unterstützter Audioplayer (pw-play, paplay oder aplay unter Linux) für den Ton gefunden.",
+      "pt": "Nenhum reprodutor de áudio compatível (pw-play, paplay ou aplay no Linux) foi encontrado para o som.",
+      "zh": "未找到可用的音频播放器（Linux 需要 pw-play、paplay 或 aplay）来播放提示音。",
+      "ko": "알림 소리를 재생할 지원 오디오 플레이어(Linux의 pw-play, paplay 또는 aplay)를 찾지 못했습니다.",
+      "ru": "Не найден поддерживаемый аудиоплеер (pw-play, paplay или aplay в Linux) для воспроизведения звука.",
+      "ar": "لم يُعثر على مشغّل صوت مدعوم (pw-play أو paplay أو aplay على Linux) لتشغيل النغمة."
     }
   }
 }
