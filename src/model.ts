@@ -36,6 +36,7 @@ export type Snapshot = {
   clockMs?: number;
   debug: boolean;
   error: string | null;
+  activityIssue?: string | null;
 };
 export const initial: Snapshot = {
   settings: {
@@ -63,6 +64,7 @@ export const initial: Snapshot = {
   rewardSlot: null,
   debug: false,
   error: null,
+  activityIssue: null,
 };
 export function formatTime(seconds: number) {
   const s = Math.max(0, Math.ceil(seconds));

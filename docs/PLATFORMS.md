@@ -6,7 +6,7 @@ This describes the checked-in implementation, not a promise inferred from Tauri'
 | --- | --- | --- |
 | Windows | Idle age, lock detection, sound playback, native window handling and snapping are implemented. | The current UI has been exercised on Windows, including language/size changes and saved state. The packaged release is checked separately below. |
 | macOS, Intel and Apple Silicon | Idle age, lock detection, sound playback, native vibrancy and window geometry are implemented. | Native interaction, suspend, Spaces and actual hardware behavior require a Mac; cross-platform code inspection cannot certify them. |
-| Linux | Incomplete platform backend. | **Unsupported; Linux release artifacts are on hold.** |
+| Linux (Ubuntu 24.04 LTS x86_64 GNOME on X11 target) | X11 MIT-SCREEN-SAVER idle-age sampling (`libXss.so.1` via runtime `dlopen`, with GNOME Mutter `IdleMonitor` fallback on X11), GNOME/freedesktop/`loginctl` lock polling, `CLOCK_BOOTTIME` suspend-inclusive monotonic clock, manual countdown decoupled from auto-detect availability, and PipeWire/PulseAudio/ALSA chime playback (`pw-play`/`paplay`/`aplay`) are implemented in source. Wayland auto-detection is explicitly unsupported and surfaces an unavailable UI state. | **Unqualified candidate source; no public Linux release yet.** Native Ubuntu 24.04 x86_64 `.deb` build and real GNOME X11 desktop QA remain pending. |
 
 ## Installing on Windows and macOS
 
@@ -20,16 +20,25 @@ Building, archive validation, and code signing checks do not establish that nati
 
 ## Linux
 
-In `src-tauri/src/platform.rs`, the non-Windows/non-macOS `sample()` returns `(None, false)`. It supplies neither idle age nor lock state. In `src-tauri/src/engine.rs`, `Engine::tick()` handles `None` before inspecting `auto_detect` or advancing time: it returns immediately with `Unavailable` (or `Paused` when manually paused). Consequently, input-triggered start, idle pause/reset and input-triggered resume do not work on Linux. Manual Start/Resume can briefly set `Running`, but subsequent ticks still cannot advance the countdown, even with automatic detection disabled.
+### Implemented scope (unqualified candidate)
 
-The same platform fallback makes `play_sound()` a no-op and `window_frames()` an empty list, so optional sound and snapping to other application windows are absent. Native backdrop handling in `native_glass()` is Windows/macOS-specific. Generic Tauri window dragging, tray, window visibility, always-on-top, autostart registration and WebKit rendering have not been tested on a Linux desktop. Their presence in generic code is not evidence of Linux functionality. The Linux clock uses `std::time::Instant`; its suspend behavior also needs explicit verification before describing it as suspend-inclusive.
+Target baseline is **Ubuntu 24.04 LTS x86_64 GNOME on X11**. Wayland automatic activity detection is **not** claimed or implemented.
 
-The audit host is Windows. No Linux desktop behavior test was run. A Linux CI compile/test job runs on Ubuntu 24.04; it can check the state machine and compilation, but does not exercise a real desktop session. A WSLg window alone would not establish behavior across native X11 and Wayland sessions.
+- **Idle-age detection (`src-tauri/src/platform.rs`):** On X11 sessions (`XDG_SESSION_TYPE=x11` with `DISPLAY`, or `DISPLAY` without `WAYLAND_DISPLAY`), the backend dynamically loads `libX11.so.6` and `libXss.so.1` (`XScreenSaverQueryInfo`) to sample only the scalar millisecond idle age from the X server, with no keylogging or input hooks. If `libXss.so.1` or the MIT-SCREEN-SAVER extension is unavailable on an X11 GNOME session, it falls back to GNOME's `org.gnome.Mutter.IdleMonitor.GetIdletime` over `gdbus`. On Wayland sessions (including when XWayland sets `DISPLAY`) and headless sessions, `sample()` reports `None` with an explicit localized reason (`errorActivityWayland`, `errorActivityX11`, or `errorActivityPermission`) rather than faking constant activity.
+- **Lock detection:** Polls `org.gnome.ScreenSaver.GetActive`, `org.freedesktop.ScreenSaver.GetActive`, or `loginctl show-session <id> -p LockedHint --value` at most once every 5 seconds.
+- **Manual mode separation (`src-tauri/src/engine.rs`):** When **Detect activity automatically** (`autoDetect`) is disabled, explicit Start / Pause / Resume advances and completes the countdown even when OS idle sampling is unavailable (such as on Wayland), while still refusing to charge locked-screen time or suspend/scheduler gaps.
+- **Suspend-inclusive clock:** `monotonic_seconds()` on Linux reads `clock_gettime(CLOCK_BOOTTIME)` so suspend/resume intervals are included in gap detection and long-suspend resets.
+- **Sound, snapping, and backdrop:**
+  - **Optional break chime:** Spawns `pw-play`, `paplay`, or `aplay -q` asynchronously (reaped without zombies) against the bundled `sounds/seatbelt.wav`. If no player is present, previewing sound in Settings reports a localized error without blocking visual break notifications.
+  - **Window snapping:** Monitor work-area edge snapping uses Tauri's monitor geometry. Snapping to other application windows (`window_frames()`) is intentionally disabled on Linux (returns an empty list) to avoid unsafe X11 `BadWindow` error-handler conflicts with GTK/GDK.
+  - **Window backdrop:** `native_glass()` has no OS blur/vibrancy backend on Linux; the UI uses CSS translucency over a transparent GTK/WebKit2GTK window.
 
-## Work required before a Linux release
+### Qualification status and pending work before a public Linux release
 
-1. Define an explicit X11/Wayland and desktop-environment support scope. Implement supported idle/lock/session backends and make unavailable or denied permissions visible. Do not report a constant fake idle age as operating-system detection.
-2. Decide how manual mode should behave when operating-system samples are unavailable; separate that policy from automatic detection and cover it with state-machine tests.
-3. Implement or explicitly disable unsupported sound, backdrop and other-window snapping options. Verify monotonic suspend accounting.
-4. Build on Linux with the native GTK/WebKit/AppIndicator dependencies, then test the packaged app in real supported desktop sessions. Exercise first input start; idle pause; long-idle reset; lock/unlock; suspend/resume; manual start/pause/resume with auto detection on and off; cycle completion and optional sound; persistence; autostart across login; tray actions and quit; transparent windows, scaling, dragging and snapping.
-5. Record the distribution, desktop, display server, artifact hash and observed results. Publish Linux artifacts only after the supported behavior passes; compilation and headless tests alone are insufficient.
+No Ubuntu 24.04 x86_64 GNOME X11 desktop host or Linux container runtime was available during source preparation on the macOS Apple Silicon host. **No `.deb` or AppImage installer has been built or published as a qualified release.** Compilation and headless CI checks (`build.yml` on `ubuntu-24.04`) verify compilation and unit tests only; they do not establish native Linux desktop behavior.
+
+Before advertising or publishing a public Linux release (which must use a new version/tag such as `v0.2.1` and never overwrite `v0.2.0`):
+
+1. Build on an actual Ubuntu 24.04 LTS x86_64 host with GTK/WebKit/AppIndicator prerequisites using `npm ci` and `npm run tauri build -- --target x86_64-unknown-linux-gnu --bundles deb` (and optionally `appimage`). Verify product name, version, architecture, bundled `LICENSE`/`THIRD-PARTY-NOTICES.md`/`licenses/`/`sounds/seatbelt.wav`, and SHA-256 hashes.
+2. Install the built `.deb` on a real **Ubuntu 24.04 LTS x86_64 GNOME on X11** desktop session and manually verify: OS input auto-start; 90-second idle pause; input resume; 10-minute idle reset; manual Start/Pause/Resume and completion with `autoDetect` disabled (including when idle sampling is unavailable); Wayland session unavailable banner; screen lock/unlock; suspend/resume (`CLOCK_BOOTTIME`); settings and focus-history persistence; tray menu and quit; break popup and optional chime; all 7 color themes; and opt-in cloud sync remaining dormant unless paired.
+3. Record Ubuntu version, display server (X11/Wayland), architecture, executed commands, exit codes, unit-test counts, screenshots/evidence, exact source commit SHA, and final artifact SHA-256 before promoting beyond a Draft/unqualified candidate.

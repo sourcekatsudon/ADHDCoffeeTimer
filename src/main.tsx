@@ -339,7 +339,11 @@ function Timer({ state, studio = false }: { state: Snapshot; studio?: boolean })
           <span
             className="timer-status"
             title={
-              state.error ? localizeError(state.error, state.settings.language) : t(state.status)
+              state.error
+                ? localizeError(state.error, state.settings.language)
+                : state.status === 'unavailable' && state.activityIssue
+                  ? localizeError(state.activityIssue, state.settings.language)
+                  : t(state.status)
             }
           >
             {state.error ? t('checkSettings') : t(state.status)}
@@ -570,6 +574,11 @@ function SettingsView({ state }: { state: Snapshot }) {
       {state.error && (
         <p className="form-error" role="alert">
           {localizeError(state.error, s.language)}
+        </p>
+      )}
+      {state.status === 'unavailable' && (
+        <p className="form-error" role="alert">
+          {localizeError(state.activityIssue ?? 'errorActivityUnavailable', s.language)}
         </p>
       )}
       <form onSubmit={(e) => e.preventDefault()}>
