@@ -91,8 +91,7 @@
     --settings-top 0.32s ease,
     --settings-bottom 0.32s ease;
   font-family:
-    'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Yu Gothic UI',
-    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+    'Segoe UI Variable', 'Segoe UI', 'Yu Gothic UI', 'Hiragino Kaku Gothic ProN', sans-serif;
   color: #f7f5f4;
   font-synthesis: none;
   font-weight: 400;
@@ -1624,7 +1623,7 @@ html:not([lang='ja']) .clock-weekday {
   to { opacity: 1; transform: scale(1) translateX(0); }
 }
 .history-popup-heading { display: flex; align-items: flex-start; justify-content: space-between; }
-.history-popup-heading strong { font-size: 12px; font-weight: 600; letter-spacing: .015em; line-height: 1.2; }
+.history-popup-heading strong { font-size: 12px; font-weight: 600; letter-spacing: .015em; }
 .history-popup-heading p { font-size: 8px; opacity: .72; margin: 0; line-height: 1.15; }
 .history-popup-close { font-size: 16px; line-height: 16px; opacity: .72; padding: 0 3px; }
 .history-popup-close:hover { opacity: 1; }
@@ -1665,7 +1664,6 @@ html:not([lang='ja']) .clock-weekday {
   align-items: center;
   justify-content: space-between;
   font-size: 8px;
-  line-height: 1.2;
   opacity: .85;
   font-variant-numeric: tabular-nums;
 }
@@ -1780,3 +1778,12 @@ body[data-platform='mac'][data-view='timer'] .capsule.glass {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* Keep recapture typography fixes inside browser-only presentation views. */
+.release-gallery, .release-showcase {
+  font-family:
+    'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Yu Gothic UI',
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+}
+.release-showcase .history-popup-heading strong,
+.release-showcase .history-popup-footer { line-height: 1.2; }
