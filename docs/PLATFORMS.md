@@ -6,7 +6,7 @@ This describes the checked-in implementation, not a promise inferred from Tauri'
 | --- | --- | --- |
 | Windows | Idle age, lock detection, sound playback, native window handling and snapping are implemented. | The current UI has been exercised on Windows, including language/size changes and saved state. The packaged release is checked separately below. |
 | macOS, Intel and Apple Silicon | Idle age, lock detection, sound playback, native vibrancy and window geometry are implemented. | Native interaction, suspend, Spaces and actual hardware behavior require a Mac; cross-platform code inspection cannot certify them. |
-| Linux (Ubuntu 24.04 LTS x86_64 GNOME on X11 target) | X11 MIT-SCREEN-SAVER idle-age sampling (`libXss.so.1` via runtime `dlopen`, with GNOME Mutter `IdleMonitor` fallback on X11), GNOME/freedesktop/`loginctl` lock polling, `CLOCK_BOOTTIME` suspend-inclusive monotonic clock, manual countdown decoupled from auto-detect availability, and PipeWire/PulseAudio/ALSA chime playback (`pw-play`/`paplay`/`aplay`) are implemented in source. Wayland auto-detection is explicitly unsupported and surfaces an unavailable UI state. | **Unqualified candidate source; no public Linux release yet.** Native Ubuntu 24.04 x86_64 `.deb` build and real GNOME X11 desktop QA remain pending. |
+| Linux (Ubuntu 24.04 LTS x86_64 GNOME on X11 target) | X11 MIT-SCREEN-SAVER idle-age sampling (`libXss.so.1` via runtime `dlopen`, with GNOME Mutter `IdleMonitor` fallback on X11), GNOME/freedesktop/`loginctl` lock polling, `CLOCK_BOOTTIME` suspend-inclusive monotonic clock, manual countdown decoupled from auto-detect availability, and PipeWire/PulseAudio/ALSA chime playback (`pw-play`/`paplay`/`aplay`) are implemented in source. Wayland auto-detection is explicitly unsupported and surfaces an unavailable UI state. | **Unqualified candidate; no public Linux release yet.** Candidate build evidence is tracked separately; real GNOME X11 desktop QA remains pending. |
 
 ## Installing on Windows and macOS
 
@@ -35,7 +35,7 @@ Target baseline is **Ubuntu 24.04 LTS x86_64 GNOME on X11**. Wayland automatic a
 
 ### Qualification status and pending work before a public Linux release
 
-No Ubuntu 24.04 x86_64 GNOME X11 desktop host or Linux container runtime was available during source preparation on the macOS Apple Silicon host. **No `.deb` or AppImage installer has been built or published as a qualified release.** Compilation and headless CI checks (`build.yml` on `ubuntu-24.04`) verify compilation and unit tests only; they do not establish native Linux desktop behavior.
+**No qualified public Linux release is available.** Any candidate artifact remains UNQUALIFIED and must be associated with its exact source commit and SHA-256 hash. See [PR #4](https://github.com/sourcekatsudon/ADHDCoffeeTimer/pull/4) for candidate build and installation evidence. Source checks (`build.yml` on `ubuntu-24.04`) and automated package installation do not establish native GNOME X11 desktop behavior; real desktop and audio QA remain pending.
 
 Before advertising or publishing a public Linux release (which must use a new version/tag such as `v0.2.1` and never overwrite `v0.2.0`):
 
