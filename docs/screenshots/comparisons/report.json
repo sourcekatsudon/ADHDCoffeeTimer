@@ -1,0 +1,103 @@
+{
+  "verifiedAt": "2026-11-23T07:24:53.411Z",
+  "assets": [
+    {
+      "asset": "themes-en.png",
+      "afterBytes": 3608141,
+      "afterDims": "3200x1400",
+      "afterGradient": 5.213,
+      "beforeAsset": "themes-en.webp",
+      "beforeBytes": 5636,
+      "beforeDims": "760x332",
+      "beforeGradient": 5.47,
+      "minThemeColorDelta": 6.48
+    },
+    {
+      "asset": "themes-ja.png",
+      "afterBytes": 3630162,
+      "afterDims": "3200x1400",
+      "afterGradient": 5.758,
+      "beforeAsset": "themes-ja.webp",
+      "beforeBytes": 5544,
+      "beforeDims": "760x332",
+      "beforeGradient": 5.507,
+      "minThemeColorDelta": 5.83
+    },
+    {
+      "asset": "timer-popup-en.png",
+      "afterBytes": 1209815,
+      "afterDims": "1800x1400",
+      "afterGradient": 3.072,
+      "beforeAsset": "timer-popup-en.webp",
+      "beforeBytes": 8398,
+      "beforeDims": "860x669",
+      "beforeGradient": 2.843
+    },
+    {
+      "asset": "timer-popup-ja.png",
+      "afterBytes": 1214448,
+      "afterDims": "1800x1400",
+      "afterGradient": 3.209,
+      "beforeAsset": "timer-popup-ja.webp",
+      "beforeBytes": 8418,
+      "beforeDims": "860x669",
+      "beforeGradient": 2.747
+    },
+    {
+      "asset": "history-popup-en.png",
+      "afterBytes": 1516045,
+      "afterDims": "2200x1400",
+      "afterGradient": 3.04,
+      "beforeAsset": "history-popup-en.webp",
+      "beforeBytes": 5228,
+      "beforeDims": "770x490",
+      "beforeGradient": 3.178
+    },
+    {
+      "asset": "history-popup-ja.png",
+      "afterBytes": 1522281,
+      "afterDims": "2200x1400",
+      "afterGradient": 3.257,
+      "beforeAsset": "history-popup-ja.webp",
+      "beforeBytes": 5388,
+      "beforeDims": "770x490",
+      "beforeGradient": 3.368
+    },
+    {
+      "asset": "timer-en.png",
+      "afterBytes": 1003991,
+      "afterDims": "1520x1400",
+      "afterGradient": 3.175
+    },
+    {
+      "asset": "timer-ja.png",
+      "afterBytes": 1009625,
+      "afterDims": "1520x1400",
+      "afterGradient": 3.357
+    },
+    {
+      "asset": "settings-en.png",
+      "afterBytes": 2641030,
+      "afterDims": "1600x3300",
+      "afterGradient": 4.403
+    },
+    {
+      "asset": "settings-ja.png",
+      "afterBytes": 2660066,
+      "afterDims": "1600x3300",
+      "afterGradient": 4.673
+    },
+    {
+      "asset": "notification-en.png",
+      "afterBytes": 1075593,
+      "afterDims": "1920x1040",
+      "afterGradient": 3.291
+    },
+    {
+      "asset": "notification-ja.png",
+      "afterBytes": 1062968,
+      "afterDims": "1920x1040",
+      "afterGradient": 3.167
+    }
+  ]
+}

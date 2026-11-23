@@ -1778,3 +1778,12 @@ body[data-platform='mac'][data-view='timer'] .capsule.glass {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* Keep recapture typography fixes inside browser-only presentation views. */
+.release-gallery, .release-showcase {
+  font-family:
+    'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Yu Gothic UI',
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+}
+.release-showcase .history-popup-heading strong,
+.release-showcase .history-popup-footer { line-height: 1.2; }
