@@ -28,11 +28,11 @@ Windowsはexeを実行。Macはチップに合うDMGを開き、Applicationsへ�
 
 アカウント連携しなくてもローカルで使用でき、テレメトリーはありません。取得するのはOSの最終入力からの経過時間で、**入力内容は記録しません**。クラウドへの作業履歴送信はPCを明示的に連携した場合のみ行います。連携解除後も過去の同期済み記録はクラウドに残る場合があります。医療・治療を目的としたアプリではありません。
 
-![作業履歴付きの7色のタイマー](../screenshots/themes-ja.webp)
+![作業履歴付きの7色のタイマー](../screenshots/themes-ja.png)
 
 | タイマー＋時間選択ポップアップ | タイマー＋作業履歴ポップアップ |
 | :---: | :---: |
-| ![時間選択ポップアップ](../screenshots/timer-popup-ja.webp) | ![7日間の作業履歴ポップアップ](../screenshots/history-popup-ja.webp) |
+| ![時間選択ポップアップ](../screenshots/timer-popup-ja.png) | ![7日間の作業履歴ポップアップ](../screenshots/history-popup-ja.png) |
 
 | タイマー | 設定 | 休憩のお知らせ |
 | :---: | :---: | :---: |
